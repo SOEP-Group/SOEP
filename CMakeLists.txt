@@ -6,8 +6,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(include)
 
-file(GLOB_RECURSE SRC_FILES src/*.cpp)
+# Find libcurl
+find_package(CURL REQUIRED)
 
-add_executable(SOEP ${SRC_FILES})
+# Find nlohmann_json
+find_package(nlohmann_json 3.2.0 REQUIRED)
 
-target_compile_options(SOEP PRIVATE -Wall)
+add_executable(SOEP src/main.cpp)
+
+# Link libraries
+target_link_libraries(SOEP PRIVATE CURL::libcurl nlohmann_json::nlohmann_json)

@@ -26,6 +26,7 @@
 *.a
 *.lib
 
+
 # Executables
 *.exe
 *.out
@@ -49,3 +50,4 @@ CMakeUserPresets.json
 bin/
 build/
 .vscode/
+*.env

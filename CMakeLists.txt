@@ -13,11 +13,7 @@ find_package(CURL REQUIRED)
 # Find nlohmann_json
 find_package(nlohmann_json 3.2.0 REQUIRED)
 
-set(SRC_FILES
-    src/main.cpp
-    src/api/api_call.cpp
-)
-
+file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 message(STATUS "Source files: ${SRC_FILES}")
 

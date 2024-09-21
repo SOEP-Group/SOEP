@@ -1,10 +1,15 @@
+# Dockerfile
+
 FROM ubuntu:22.04
 
-RUN apt-get update && apt-get upgrade -y
-
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     g++ \
-    cmake
+    cmake \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libjsoncpp-dev \
+    nlohmann-json3-dev
 
 WORKDIR /usr/src/SOEP
 

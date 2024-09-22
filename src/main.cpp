@@ -1,54 +1,48 @@
 // src/main.cpp
-
-#include <iostream>
-#include <cstdlib> // For getenv()
-#include <string>
-#include <nlohmann/json.hpp>
+#include "pch.h"
+#include <dotenv/dotenv.h>
 #include "api/api_call.h"
-
-using json = nlohmann::json;
+#include "core/assert.h"
+#include "core/threadpool.h"
 
 int main()
 {
-    // Get API key from environment variable
-    const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
-    if (apiKeyEnv == nullptr) {
-        std::cerr << "Error: N2YO_API_KEY environment variable is not set." << std::endl;
-        return 1;
-    }
-    std::string apiKey(apiKeyEnv);
+	dotenv::init();
+	SOEP::ThreadPool pool{ 10 };
+	// Get API key from environment variable
+	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
+	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
+	std::string apiKey(apiKeyEnv);
 
-    // Satellite parameters
-    int satID = 25540; // As per your code
-    double observer_lat = 41.702;
-    double observer_lng = -76.014;
-    double observer_alt = 0;
-    int seconds = 2;
+	// Satellite parameters
+	int satID = 25540; // As per your code
+	double observer_lat = 41.702;
+	double observer_lng = -76.014;
+	double observer_alt = 0;
+	int seconds = 2;
 
-    // Fetch satellite data
-    std::string response = fetchSatelliteData(apiKey, satID, observer_lat, observer_lng, observer_alt, seconds);
+	auto promise = pool.AddTask(fetchSatelliteData, apiKey, satID, observer_lat, observer_lng, observer_alt, seconds);
 
-    if (!response.empty()) {
-        try {
-            // Parse the JSON response
-            auto jsonResponse = json::parse(response);
+	// Will wait until every task is done, You dont HAVE to run this, this is only important if you want to wait for everything to be done
+	// It will freeze the main thread until every task is completed.
+	// If syncronization between tasks don't matter, just wait for individual promises
+	pool.Await();
 
-            // Output some data
-            std::cout << "Satellite Name: " << jsonResponse["info"]["satname"] << std::endl;
-            std::cout << "Positions:" << std::endl;
+	std::string response = promise.get();
 
-            for (const auto& position : jsonResponse["positions"]) {
-                std::cout << "  Timestamp: " << position["timestamp"] << std::endl;
-                std::cout << "  Latitude: " << position["satlatitude"] << std::endl;
-                std::cout << "  Longitude: " << position["satlongitude"] << std::endl;
-                std::cout << "  Altitude: " << position["sataltitude"] << std::endl;
-            }
-        } catch (const json::parse_error& e) {
-            std::cerr << "JSON parse error: " << e.what() << std::endl;
-        }
-    } else {
-        std::cerr << "Failed to fetch satellite data." << std::endl;
-    }
+	SOEP_ASSERT(!response.empty(), "Failed to fetch satellite data.");
+	// Avoid try catches unless absolutely necessary, they are slow
+	auto jsonResponse = nlohmann::json::parse(response);
 
-    return 0;
+	spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
+	spdlog::info("Positions:");
+	for (const auto& position : jsonResponse["positions"]) {
+		spdlog::info("Timestamp: {0}", position["timestamp"].dump());
+		spdlog::info("Latitude: {0}", position["satlatitude"].dump());
+		spdlog::info("Longitude: {0}", position["satlongitude"].dump());
+		spdlog::info("Altitude: {0}", position["sataltitude"].dump());
+	}
+
+
+	return 0;
 }

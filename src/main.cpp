@@ -4,10 +4,12 @@
 #include "api/api_call.h"
 #include "core/assert.h"
 #include "core/threadpool.h"
+#include "network/network.h"
 
 int main()
 {
 	dotenv::init();
+	SOEP::Network::Init();
 	SOEP::ThreadPool pool{ 10 };
 	// Get API key from environment variable
 	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
@@ -21,18 +23,41 @@ int main()
 	double observer_alt = 0;
 	int seconds = 2;
 
-	auto promise = pool.AddTask(fetchSatelliteData, apiKey, satID, observer_lat, observer_lng, observer_alt, seconds);
+	std::string url = "https://api.n2yo.com/rest/v1/satellite/positions/"
+		+ std::to_string(satID) + "/"
+		+ std::to_string(observer_lat) + "/"
+		+ std::to_string(observer_lng) + "/"
+		+ std::to_string(observer_alt) + "/"
+		+ std::to_string(seconds) + "/"
+		+ "&apiKey=" + apiKeyEnv;
+
+	// Two ways of using the network api. You can pick and choose between them
+
+	// 1st, use call back to recieve and handle the result
+	auto promise = pool.AddTask(SOEP::Network::Call, url, [](std::shared_ptr<std::string> result) {
+		auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
+		spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
+		spdlog::info("Positions:");
+		for (const auto& position : jsonResponse["positions"]) {
+			spdlog::info("Timestamp: {0}", position["timestamp"].dump());
+			spdlog::info("Latitude: {0}", position["satlatitude"].dump());
+			spdlog::info("Longitude: {0}", position["satlongitude"].dump());
+			spdlog::info("Altitude: {0}", position["sataltitude"].dump());
+		}
+
+		}, nullptr, nullptr);
 
 	// Will wait until every task is done, You dont HAVE to run this, this is only important if you want to wait for everything to be done
 	// It will freeze the main thread until every task is completed.
 	// If syncronization between tasks don't matter, just wait for individual promises
 	pool.Await();
 
-	std::string response = promise.get();
+	// 2nd, wait for the result to come back like so
+	std::shared_ptr<std::string> response = promise.get();
 
-	SOEP_ASSERT(!response.empty(), "Failed to fetch satellite data.");
+	SOEP_ASSERT(!response->empty(), "Failed to fetch satellite data.");
 	// Avoid try catches unless absolutely necessary, they are slow
-	auto jsonResponse = nlohmann::json::parse(response);
+	auto jsonResponse = nlohmann::json::parse(response->begin(), response->end());
 
 	spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
 	spdlog::info("Positions:");
@@ -43,6 +68,6 @@ int main()
 		spdlog::info("Altitude: {0}", position["sataltitude"].dump());
 	}
 
-
+	SOEP::Network::Shutdown();
 	return 0;
 }

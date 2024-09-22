@@ -46,8 +46,17 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 
+# VS
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+**.csproj
+
 # Output directories
 bin/
 build/
 .vscode/
+.vs/
+out/
 *.env

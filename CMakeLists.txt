@@ -16,8 +16,8 @@ include_directories(libs/spdlog/include)
 if(WIN32)
     message(STATUS "Using local static curl on Windows")
     include_directories(libs/curl/include)
-    set(CURL_LIBRARIES 
-        ${CMAKE_SOURCE_DIR}/libs/curl/lib/libcurl.lib 
+    set(CURL_LIBRARIES
+        ${CMAKE_SOURCE_DIR}/libs/curl/lib/libcurl.lib
         ${CMAKE_SOURCE_DIR}/libs/curl/lib/zlib.lib
     )
 
@@ -33,25 +33,28 @@ endif()
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 message(STATUS "Source files: ${SRC_FILES}")
-if (CMAKE_BUILD_TYPE MATCHES Debug)
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(DEBUG)
-elseif (CMAKE_BUILD_TYPE MATCHES Release)
+elseif(CMAKE_BUILD_TYPE MATCHES Release)
     add_compile_definitions(RELEASE)
 endif()
+
 if(WIN32)
     add_compile_definitions("PLATFORM_WINDOWS=${WIN32}")
 else()
     add_compile_definitions("PLATFORM_LINUX=${UNIX}")
 endif()
+
 add_executable(SOEP ${SRC_FILES})
 
 target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 
 # Link libraries based on platform
 if(WIN32)
-     target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS})
+    target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS})
 else()
-     target_link_libraries(SOEP PRIVATE CURL::libcurl)
+    target_link_libraries(SOEP PRIVATE CURL::libcurl)
 endif()
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/.env")
@@ -71,7 +74,7 @@ if(WIN32)
     foreach(BIN_FILE ${BIN_FILES})
         add_custom_command(TARGET SOEP POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${BIN_FILE}"                            
+            "${BIN_FILE}"
             $<TARGET_FILE_DIR:SOEP>
         )
     endforeach()

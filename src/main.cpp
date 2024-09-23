@@ -11,9 +11,9 @@ int main()
 	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
 	dotenv::init();
 	SOEP::Network::Init();
-	SOEP::ThreadPool pool{ 10 };
+	SOEP::ThreadPool pool{10};
 	// Get API key from environment variable
-	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
+	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 
@@ -24,29 +24,23 @@ int main()
 	double observer_alt = 0;
 	int seconds = 2;
 
-	std::string url = "https://api.n2yo.com/rest/v1/satellite/positions/"
-		+ std::to_string(satID) + "/"
-		+ std::to_string(observer_lat) + "/"
-		+ std::to_string(observer_lng) + "/"
-		+ std::to_string(observer_alt) + "/"
-		+ std::to_string(seconds) + "/"
-		+ "&apiKey=" + apiKeyEnv;
+	std::string url = "https://api.n2yo.com/rest/v1/satellite/positions/" + std::to_string(satID) + "/" + std::to_string(observer_lat) + "/" + std::to_string(observer_lng) + "/" + std::to_string(observer_alt) + "/" + std::to_string(seconds) + "/" + "&apiKey=" + apiKeyEnv;
 
 	// Two ways of using the network api. You can pick and choose between them
 
 	// 1st, use call back to recieve and handle the result
-	auto promise = pool.AddTask(SOEP::Network::Call, url, [](std::shared_ptr<std::string> result) {
-		auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
-		spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
-		spdlog::info("Positions:");
-		for (const auto& position : jsonResponse["positions"]) {
-			spdlog::info("Timestamp: {0}", position["timestamp"].dump());
-			spdlog::info("Latitude: {0}", position["satlatitude"].dump());
-			spdlog::info("Longitude: {0}", position["satlongitude"].dump());
-			spdlog::info("Altitude: {0}", position["sataltitude"].dump());
-		}
-
-		}, nullptr, nullptr);
+	auto promise = pool.AddTask(SOEP::Network::Call, url, [](std::shared_ptr<std::string> result)
+								{
+									auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
+									spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
+									spdlog::info("Positions:");
+									for (const auto &position : jsonResponse["positions"])
+									{
+										spdlog::info("Timestamp: {0}", position["timestamp"].dump());
+										spdlog::info("Latitude: {0}", position["satlatitude"].dump());
+										spdlog::info("Longitude: {0}", position["satlongitude"].dump());
+										spdlog::info("Altitude: {0}", position["sataltitude"].dump());
+									} }, nullptr, nullptr);
 
 	// Will wait until every task is done, You dont HAVE to run this, this is only important if you want to wait for everything to be done
 	// It will freeze the main thread until every task is completed.
@@ -62,7 +56,8 @@ int main()
 
 	spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
 	spdlog::info("Positions:");
-	for (const auto& position : jsonResponse["positions"]) {
+	for (const auto &position : jsonResponse["positions"])
+	{
 		spdlog::info("Timestamp: {0}", position["timestamp"].dump());
 		spdlog::info("Latitude: {0}", position["satlatitude"].dump());
 		spdlog::info("Longitude: {0}", position["satlongitude"].dump());

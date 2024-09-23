@@ -16,5 +16,9 @@ Docker
 
 ```
 docker build -t soep .
-docker run --rm -e N2YO_API_KEY="<env_key>" soep
+docker run --rm -it soep
 ```
+
+## .env File
+
+Make sure you have the .env file in the root directory. You can find the latest .env file in the discord server

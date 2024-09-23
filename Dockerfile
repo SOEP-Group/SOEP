@@ -15,6 +15,11 @@ WORKDIR /usr/src/SOEP
 
 COPY . .
 
+RUN if [ ! -f ".env" ]; then \
+    echo -e "\033[0;31mERROR: .env file not found.\033[0m"; \
+    exit 1; \
+    fi
+
 RUN rm -rf build && mkdir build
 
 WORKDIR /usr/src/SOEP/build

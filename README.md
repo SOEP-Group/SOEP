@@ -16,5 +16,5 @@ Docker
 
 ```
 docker build -t soep .
-docker run --rm -e N2YO_API_KEY="<env_key>" soep
+docker run -p 8086:8086 --rm -e N2YO_API_KEY="<env_key>" soep
 ```

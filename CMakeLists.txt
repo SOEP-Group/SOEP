@@ -15,6 +15,7 @@ include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
 
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
+add_compile_definitions(TRACY_TIMER_FALLBACK)
 
 if(WIN32)
     message(STATUS "Using local static curl on Windows")

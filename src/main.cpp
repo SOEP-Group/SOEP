@@ -1,13 +1,13 @@
 // src/main.cpp
 #include "pch.h"
 #include <dotenv/dotenv.h>
-#include "api/api_call.h"
 #include "core/assert.h"
 #include "core/threadpool.h"
 #include "network/network.h"
 
 int main()
 {
+	SOEP::SOEP_SCOPE_TIMER("Main function");
 	dotenv::init();
 	SOEP::Network::Init();
 	SOEP::ThreadPool pool{ 10 };

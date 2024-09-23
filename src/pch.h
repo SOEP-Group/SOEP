@@ -47,6 +47,7 @@
 
 #include "core/base.h"
 #include "core/timer.h"
+#include "core/profiler.h"
 
 #ifdef PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN

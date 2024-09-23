@@ -12,6 +12,9 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 include_directories(libs/nlohmann/include)
 include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
+include_directories(libs/tracy/public)
+
+add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 
 if(WIN32)
     message(STATUS "Using local static curl on Windows")
@@ -31,6 +34,7 @@ else()
 endif()
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
+set(TRACY_SOURCES libs/tracy/public/TracyClient.cpp)
 
 message(STATUS "Source files: ${SRC_FILES}")
 if (CMAKE_BUILD_TYPE MATCHES Debug)
@@ -43,7 +47,8 @@ if(WIN32)
 else()
     add_compile_definitions("PLATFORM_LINUX=${UNIX}")
 endif()
-add_executable(SOEP ${SRC_FILES})
+
+add_executable(SOEP ${SRC_FILES} ${TRACY_SOURCES})
 
 target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 
@@ -54,6 +59,7 @@ else()
      target_link_libraries(SOEP PRIVATE CURL::libcurl)
 endif()
 
+# Copy .env file to the output directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/.env")
     add_custom_command(TARGET SOEP POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -65,6 +71,7 @@ else()
     message(WARNING "No .env file detected, the program might crash. Ask Shakir for it.")
 endif()
 
+# If on Windows, copy additional curl binaries
 if(WIN32)
     file(GLOB BIN_FILES "${CMAKE_SOURCE_DIR}/libs/curl/bin/*")
 

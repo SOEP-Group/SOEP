@@ -7,7 +7,8 @@
 
 int main()
 {
-	SOEP::SOEP_SCOPE_TIMER("Main function");
+	spdlog::set_level(spdlog::level::trace);
+	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
 	dotenv::init();
 	SOEP::Network::Init();
 	SOEP::ThreadPool pool{ 10 };

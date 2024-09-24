@@ -7,6 +7,7 @@
 
 int main()
 {
+	SOEP_PROFILE_FUNC();
 	spdlog::set_level(spdlog::level::trace);
 	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
 	dotenv::init();
@@ -65,5 +66,6 @@ int main()
 	}
 
 	SOEP::Network::Shutdown();
+	SOEP_PROFILE_MARK_END;
 	return 0;
 }

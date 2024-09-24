@@ -16,7 +16,7 @@ Docker
 
 ```
 docker build -t soep .
-docker run --rm -it soep
+docker run -p 8086:8086 --rm -it soep
 ```
 
 ## .env File

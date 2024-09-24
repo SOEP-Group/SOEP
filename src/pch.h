@@ -49,6 +49,8 @@
 #include "core/timer.h"
 #include "core/profiler.h"
 
+#include "database/database_connection.h"
+
 #ifdef PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>

@@ -1,9 +1,10 @@
-// src/main.cpp
+#include <pqxx/pqxx>
 #include "pch.h"
 #include <dotenv/dotenv.h>
 #include "core/assert.h"
 #include "core/threadpool.h"
 #include "network/network.h"
+#include "database/database_connection.h"
 
 int main()
 {
@@ -13,6 +14,11 @@ int main()
 	dotenv::init();
 	SOEP::Network::Init();
 	SOEP::ThreadPool pool{10};
+
+	// Postgres connection
+	// DatabaseConnection dbConn("mytimescaledb", "postgres", "mysecretpassword", "localhost", 5432);
+	// dbConn.getPostgresVersion();
+
 	// Get API key from environment variable
 	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");

@@ -28,7 +28,6 @@
 
 
 # Executables
-*.exe
 *.out
 *.app
 
@@ -60,3 +59,4 @@ build/
 .vs/
 out/
 *.env
+data/

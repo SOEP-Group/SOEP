@@ -45,7 +45,11 @@
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
-#include "core/assert.h"
+#include "core/base.h"
+#include "core/timer.h"
+#include "core/profiler.h"
+
+#include "database/database_connection.h"
 
 #ifdef PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN

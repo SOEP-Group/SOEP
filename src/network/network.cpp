@@ -23,6 +23,7 @@ namespace SOEP {
 
 	std::shared_ptr<std::string> Network::Call(const std::string& url, const std::function<void(std::shared_ptr<std::string>& result)> custom_callback, const CurlOptionMap* options, const HeaderList* headers)
 	{
+		SOEP_PROFILE_FUNC();
 		SOEP_ASSERT(s_Data && s_Data->Instance, "No network instance found, have you forgot to run Init() before making any calls?");
 		CURL* curl_instance = curl_easy_init();
 		SOEP_ASSERT(curl_instance, "Curl couldn't initialize!");

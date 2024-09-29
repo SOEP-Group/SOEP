@@ -1,19 +1,50 @@
-#ifndef DATABASE_CONNECTION_H
-#define DATABASE_CONNECTION_H
+#pragma once
 
 #include <pqxx/pqxx>
 #include <string>
+#include <memory>
+#include <mutex>
+#include <vector>
+#include <map>
+#include <spdlog/spdlog.h>
 
-class DatabaseConnection
-{
+class DatabaseConnection {
 public:
-    DatabaseConnection(const std::string &dbname, const std::string &user, const std::string &password, const std::string &host, int port);
+    explicit DatabaseConnection(const std::string& connStr);
     ~DatabaseConnection();
 
-    void getPostgresVersion();
+    // disable copy
+    DatabaseConnection(const DatabaseConnection&) = delete;
+    DatabaseConnection& operator=(const DatabaseConnection&) = delete;
+
+    // enable move
+    DatabaseConnection(DatabaseConnection&&) = default;
+    DatabaseConnection& operator=(DatabaseConnection&&) = default;
+
+    bool isOpen() const;
+
+    void getDatabaseVersion();
+    void testQuery();
+
+    void beginTransaction();
+    void commitTransaction();
+    void rollbackTransaction();
+
+    std::vector<std::map<std::string, std::string>> executeSelectQuery(const std::string& query);
+    int executeUpdateQuery(const std::string& query);
+    void executeAdminQuery(const std::string& query);
+
+    /*void prepareStmt(const std::string& name, const std::string& query);
+    std::vector<std::map<std::string, std::string>> executePreparedSelect(const std::string& name, const std::vector<std::string>& params);
+    int executePreparedUpdate(const std::string& name, const std::vector<std::string>& params);*/
+
+    void close();
 
 private:
-    pqxx::connection *conn;
-};
+    void connect();
 
-#endif
+    std::string connString;
+    std::unique_ptr<pqxx::connection> conn;
+    std::unique_ptr<pqxx::work> currentTransaction;
+    mutable std::mutex connMutex;
+};

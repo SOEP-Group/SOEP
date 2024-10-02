@@ -3,7 +3,6 @@
 #include <pqxx/pqxx>
 #include <string>
 #include <memory>
-#include <mutex>
 #include <vector>
 #include <map>
 #include <spdlog/spdlog.h>

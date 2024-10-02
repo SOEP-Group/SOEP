@@ -4,7 +4,6 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-#include <memory>
 
 namespace SOEP {
     class ConnectionPool {

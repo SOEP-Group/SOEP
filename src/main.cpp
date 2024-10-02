@@ -5,6 +5,7 @@
 #include "core/threadpool.h"
 #include "network/network.h"
 #include "database/database_connection.h"
+#include "database/pool/connection_pool.h"
 
 
 int main()
@@ -36,16 +37,34 @@ int main()
 							 " host=" + std::string(host) +
 							 " port=" + std::to_string(port);
 
-	try {
-		DatabaseConnection dbConn(connString);
-		if (dbConn.isOpen()) {
-			dbConn.testQuery();
-		}
-	} catch (const std::exception& e) {
-		spdlog::error("operation failed: {}", e.what());
-    }
+	SOEP::ConnectionPool& connPool = SOEP::ConnectionPool::getInstance();
+	connPool.initialize(connString, 10);
 
-	/*// Get API key from environment variable
+	{
+		auto dbConn = connPool.acquire();
+		if (dbConn) { // change this block later when we have a db schema
+			dbConn->getDatabaseVersion();
+			dbConn->executeAdminQuery("CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name TEXT, age INT);");
+			connPool.release(dbConn);
+		}
+	}
+
+	// db test
+	/*
+	for (int i = 0; i < 20; ++i) {
+        pool.AddTask([&connPool, i]() {
+            auto dbConn = connPool.acquire();
+            if (dbConn) {
+				dbConn->test2Query("Ben" + std::to_string(i), 20 + i);
+                connPool.release(dbConn);
+            } else {
+                spdlog::error("failed to acquire dbconn");
+            }
+        });
+    }
+	*/
+
+	// Get API key from environment variable
 	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
@@ -95,7 +114,13 @@ int main()
 		spdlog::info("Latitude: {0}", position["satlatitude"].dump());
 		spdlog::info("Longitude: {0}", position["satlongitude"].dump());
 		spdlog::info("Altitude: {0}", position["sataltitude"].dump());
-	}*/
+	}
+
+	pool.Await();
+
+    pool.Shutdown();
+
+    connPool.shutdown();
 
 	SOEP::Network::Shutdown();
 	SOEP_PROFILE_MARK_END;

@@ -1,47 +1,49 @@
 #include "database_connection.h"
+#include "../core/assert.h"
 
-std::vector<std::map<std::string, std::string>> DatabaseConnection::executeSelectQuery(const std::string& query) {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (!conn || !conn->is_open()) {
-        throw std::runtime_error("connection is not open");
-    }
+std::vector<std::map<std::string, std::string>> SOEP::DatabaseConnection::executeSelectQuery(const std::string& query) {
+    SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+
+    pqxx::result res;
     try {
-        pqxx::work txn(*conn);
-        pqxx::result res = txn.exec(query);
-        txn.commit();
-        spdlog::info("executed SELECT query: {}", query);
-
-        std::vector<std::map<std::string, std::string>> results;
-        for (const auto& row : res) {
-            std::map<std::string, std::string> resultRow;
-            for (const auto& field : row) {
-                resultRow[field.name()] = field.c_str();
-            }
-            results.push_back(resultRow);
+        if (currentTransaction) {
+            res = currentTransaction->exec(query);
+            spdlog::info("executed SELECT query in transaction: {}", query);
+        } else {
+            pqxx::work txn(*conn);
+            res = txn.exec(query);
+            txn.commit();
+            spdlog::info("executed SELECT query: {}", query);
         }
-        return results;
+
     } catch (const pqxx::sql_error& e) {
         spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
         throw;
-    } catch (const std::exception& e) {
-        spdlog::error("error executing SELECT query: {}", e.what());
-        throw;
     }
+
+    std::vector<std::map<std::string, std::string>> results;
+    for (const auto& row : res) {
+        std::map<std::string, std::string> resultRow;
+        for (const auto& field : row) {
+            resultRow[field.name()] = field.c_str();
+        }
+        results.push_back(resultRow);
+    }
+    return results;
 }
 
-int DatabaseConnection::executeUpdateQuery(const std::string& query) {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (!conn || !conn->is_open()) {
-        throw std::runtime_error("connection is not open");
-    }
+
+int SOEP::DatabaseConnection::executeUpdateQuery(const std::string& query) {
+    SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+
+    pqxx::result res;
     try {
         if (currentTransaction) {
-            pqxx::result res = currentTransaction->exec(query);
+            res = currentTransaction->exec(query);
             spdlog::info("executed UPDATE query in transaction: {}", query);
-            return res.affected_rows();
         } else {
             pqxx::work txn(*conn);
-            pqxx::result res = txn.exec(query);
+            res = txn.exec(query);
             int affectedRows = res.affected_rows();
             txn.commit();
             spdlog::info("executed UPDATE query: {}", query);
@@ -50,41 +52,37 @@ int DatabaseConnection::executeUpdateQuery(const std::string& query) {
     } catch (const pqxx::sql_error& e) {
         spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
         throw;
-    } catch (const std::exception& e) {
-        spdlog::error("error executing UPDATE query: {}", e.what());
-        throw;
     }
+
+    return res.affected_rows();
 }
 
-void DatabaseConnection::executeAdminQuery(const std::string& query) {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (!conn || !conn->is_open()) {
-        throw std::runtime_error("connection is not open");
-    }
+/*
+    IMPORTANT: dont execute inside threads
+*/
+void SOEP::DatabaseConnection::executeAdminQuery(const std::string& query) {
+    SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+
     try {
         if (currentTransaction) {
             currentTransaction->exec(query);
+            spdlog::info("executed ADMIN query in transaction: {}", query);
         } else {
             pqxx::work txn(*conn);
             txn.exec(query);
             txn.commit();
+            spdlog::info("executed ADMIN query: {}", query);
         }
     } catch (const pqxx::sql_error& e) {
         spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-        throw;
-    } catch (const std::exception& e) {
-        spdlog::error("error: {}", e.what());
         throw;
     }
 }
 
 // test
-#include <iostream>
-void DatabaseConnection::testQuery() {
+void SOEP::DatabaseConnection::testQuery() {
     try {
         beginTransaction();
-
-        executeAdminQuery("CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name TEXT, age INT);");
 
         executeUpdateQuery(
             "INSERT INTO test_table (name, age) VALUES "
@@ -99,10 +97,34 @@ void DatabaseConnection::testQuery() {
         }
 
         commitTransaction();
-        spdlog::debug("transaction committed");
     } catch (const std::exception& e) {
         rollbackTransaction();
-        spdlog::error("transaction rollbacked");
+        spdlog::error("error: {}", e.what());
+    }
+}
+
+// test
+void SOEP::DatabaseConnection::test2Query(const std::string& name, const int& age) {
+    try {
+        beginTransaction();
+
+        executeUpdateQuery(
+            "INSERT INTO test_table (name, age) VALUES "
+            "('" + name + "', " + std::to_string(age) + ")"
+            "ON CONFLICT DO NOTHING;");
+
+        auto results = executeSelectQuery("SELECT * FROM test_table");
+        for (const auto& row : results) {
+            std::string res = "";
+            for (const auto& field : row) {
+                res += field.first + ": " + field.second + ", ";
+            }
+            spdlog::info(res);
+        }
+
+        commitTransaction();
+    } catch (const std::exception& e) {
+        rollbackTransaction();
         spdlog::error("error: {}", e.what());
     }
 }

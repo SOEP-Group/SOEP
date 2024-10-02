@@ -25,23 +25,7 @@ Make sure you have the .env file in the root directory. You can find the latest 
 
 ## PostgresSQL
 
-To run the database:
-
-```
-docker run -d \
-  --name timescaledb \
-  -p 5432:5432 \
-  -v ./data:/var/lib/postgresql/data \
-  -e POSTGRES_PASSWORD=mysecretpassword \
-  -e POSTGRES_DB=mytimescaledb \
-  timescale/timescaledb:latest-pg16
-```
-
-### Connect to the database image
-
-```
-docker exec -it timescaledb psql -U postgres -d mytimescaledb
-```
+[Database](./src/database/)
 
 ## Dependencies
 

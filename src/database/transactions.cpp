@@ -1,35 +1,26 @@
 #include "database_connection.h"
+#include "../core/assert.h"
 
-void DatabaseConnection::beginTransaction() {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (!isOpen()) {
-        throw std::runtime_error("connection is not open");
-    }
-    if (currentTransaction) {
-        throw std::runtime_error("transaction already in progress");
-    }
+void SOEP::DatabaseConnection::beginTransaction() {
+    SOEP_ASSERT(isOpen(), "connection is not open");
+    SOEP_ASSERT(!currentTransaction, "transaction already in progress");
+
     currentTransaction = std::make_unique<pqxx::work>(*conn);
     spdlog::info("transaction started");
 }
 
-void DatabaseConnection::commitTransaction() {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (currentTransaction) {
-        currentTransaction->commit();
-        currentTransaction.reset();
-        spdlog::info("transaction committed");
-    } else {
-        throw std::runtime_error("no transaction in progress");
-    }
+void SOEP::DatabaseConnection::commitTransaction() {
+    SOEP_ASSERT(currentTransaction, "no transaction in progress");
+
+    currentTransaction->commit();
+    currentTransaction.reset();
+    spdlog::info("transaction committed");
 }
 
-void DatabaseConnection::rollbackTransaction() {
-    std::lock_guard<std::mutex> lock(connMutex);
-    if (currentTransaction) {
-        currentTransaction->abort();
-        currentTransaction.reset();
-        spdlog::info("transaction rolled back");
-    } else {
-        throw std::runtime_error("no transaction in progress");
-    }
+void SOEP::DatabaseConnection::rollbackTransaction() {
+    SOEP_ASSERT(currentTransaction, "no transaction in progress");
+
+    currentTransaction->abort();
+    currentTransaction.reset();
+    spdlog::info("transaction rolled back");
 }

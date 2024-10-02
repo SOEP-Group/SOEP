@@ -8,43 +8,46 @@
 #include <map>
 #include <spdlog/spdlog.h>
 
-class DatabaseConnection {
-public:
-    explicit DatabaseConnection(const std::string& connStr);
-    ~DatabaseConnection();
+namespace SOEP {
+    class DatabaseConnection {
+    public:
+        explicit DatabaseConnection(const std::string& connStr);
+        ~DatabaseConnection();
 
-    // disable copy
-    DatabaseConnection(const DatabaseConnection&) = delete;
-    DatabaseConnection& operator=(const DatabaseConnection&) = delete;
+        // disable copy
+        DatabaseConnection(const DatabaseConnection&) = delete;
+        DatabaseConnection& operator=(const DatabaseConnection&) = delete;
 
-    // enable move
-    DatabaseConnection(DatabaseConnection&&) = default;
-    DatabaseConnection& operator=(DatabaseConnection&&) = default;
+        // enable move
+        DatabaseConnection(DatabaseConnection&&) = default;
+        DatabaseConnection& operator=(DatabaseConnection&&) = default;
 
-    bool isOpen() const;
+        bool isOpen() const;
 
-    void getDatabaseVersion();
-    void testQuery();
+        void getDatabaseVersion();
 
-    void beginTransaction();
-    void commitTransaction();
-    void rollbackTransaction();
+        void testQuery();
+        void test2Query(const std::string&, const int&);
 
-    std::vector<std::map<std::string, std::string>> executeSelectQuery(const std::string& query);
-    int executeUpdateQuery(const std::string& query);
-    void executeAdminQuery(const std::string& query);
+        void beginTransaction();
+        void commitTransaction();
+        void rollbackTransaction();
 
-    /*void prepareStmt(const std::string& name, const std::string& query);
-    std::vector<std::map<std::string, std::string>> executePreparedSelect(const std::string& name, const std::vector<std::string>& params);
-    int executePreparedUpdate(const std::string& name, const std::vector<std::string>& params);*/
+        std::vector<std::map<std::string, std::string>> executeSelectQuery(const std::string& query); // SELECT
+        int executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
+        void executeAdminQuery(const std::string& query); // CREATE, ALTER
 
-    void close();
+        /*void prepareStmt(const std::string& name, const std::string& query);
+        std::vector<std::map<std::string, std::string>> executePreparedSelect(const std::string& name, const std::vector<std::string>& params);
+        int executePreparedUpdate(const std::string& name, const std::vector<std::string>& params);*/
 
-private:
-    void connect();
+        void close();
 
-    std::string connString;
-    std::unique_ptr<pqxx::connection> conn;
-    std::unique_ptr<pqxx::work> currentTransaction;
-    mutable std::mutex connMutex;
-};
+    private:
+        void connect();
+
+        std::string connString;
+        std::unique_ptr<pqxx::connection> conn;
+        std::unique_ptr<pqxx::work> currentTransaction;
+    };
+}

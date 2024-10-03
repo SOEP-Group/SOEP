@@ -1,5 +1,4 @@
 #include "connection_pool.h"
-#include "../../core/assert.h"
 
 SOEP::ConnectionPool& SOEP::ConnectionPool::getInstance() {
     static ConnectionPool instance;

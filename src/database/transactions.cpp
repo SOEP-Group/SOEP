@@ -1,5 +1,4 @@
 #include "database_connection.h"
-#include "../core/assert.h"
 
 void SOEP::DatabaseConnection::beginTransaction() {
     SOEP_ASSERT(isOpen(), "connection is not open");

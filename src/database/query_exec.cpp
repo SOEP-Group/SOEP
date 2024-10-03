@@ -1,5 +1,4 @@
 #include "database_connection.h"
-#include "../core/assert.h"
 
 std::vector<std::map<std::string, std::string>> SOEP::DatabaseConnection::executeSelectQuery(const std::string& query) {
     SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
@@ -85,15 +84,16 @@ void SOEP::DatabaseConnection::testQuery() {
         beginTransaction();
 
         executeUpdateQuery(
-            "INSERT INTO test_table (name, age) VALUES "
-            "('Sigma Ben', 50), ('Beta Tom', 1) "
-            "ON CONFLICT DO NOTHING;");
+            "INSERT INTO test_table (name, age) VALUES ('Sigma Ben', 50), ('Beta Tom', 1) ON CONFLICT DO NOTHING;"
+        );
 
         auto results = executeSelectQuery("SELECT * FROM test_table");
         for (const auto& row : results) {
+            std::string res = "";
             for (const auto& field : row) {
-                spdlog::info("{}: {}", field.first, field.second);
+                res += field.first + ": " + field.second + ", ";
             }
+            spdlog::info(res);
         }
 
         commitTransaction();
@@ -109,11 +109,15 @@ void SOEP::DatabaseConnection::test2Query(const std::string& name, const int& ag
         beginTransaction();
 
         executeUpdateQuery(
-            "INSERT INTO test_table (name, age) VALUES "
-            "('" + name + "', " + std::to_string(age) + ")"
-            "ON CONFLICT DO NOTHING;");
+            "INSERT INTO test_table (name, age) VALUES ($1, $2) ON CONFLICT DO NOTHING;",
+            name,
+            age
+        );
 
-        auto results = executeSelectQuery("SELECT * FROM test_table");
+        auto results = executeSelectQuery(
+            "SELECT * FROM test_table WHERE name = $1",
+            name
+        );
         for (const auto& row : results) {
             std::string res = "";
             for (const auto& field : row) {

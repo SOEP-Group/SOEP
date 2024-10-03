@@ -40,6 +40,7 @@ std::shared_ptr<SOEP::DatabaseConnection> SOEP::ConnectionPool::acquire(int time
 
     if (!acquired) {
         spdlog::warn("timeout: failed to acquire db connection");
+        return nullptr;
     }
 
     if (isShuttingDown) {

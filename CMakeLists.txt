@@ -13,7 +13,6 @@ include_directories(libs/nlohmann/include)
 include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
-include_directories(libs/pqxx/include)
 
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 add_compile_definitions(TRACY_TIMER_FALLBACK)
@@ -33,6 +32,11 @@ if(WIN32)
 
 else()
     find_package(CURL REQUIRED)
+    find_package(PostgreSQL REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PQXX REQUIRED libpqxx)
+    include_directories(${PQXX_INCLUDE_DIRS})
+    link_directories(${PQXX_LIBRARY_DIRS})
 endif()
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
@@ -60,10 +64,8 @@ target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 if(WIN32)
     target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS})
 else()
-    target_link_libraries(SOEP PRIVATE CURL::libcurl)
+    target_link_libraries(SOEP PRIVATE CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES})
 endif()
-
-target_link_libraries(SOEP PRIVATE ${CMAKE_SOURCE_DIR}/libs/pqxx/lib/libpqxx.a pq)
 
 # Copy .env file to the output directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/.env")

@@ -32,11 +32,15 @@ void SOEP::ConnectionPool::shutdown() {
     isShuttingDown = false;
 }
 
-std::shared_ptr<SOEP::DatabaseConnection> SOEP::ConnectionPool::acquire() {
+std::shared_ptr<SOEP::DatabaseConnection> SOEP::ConnectionPool::acquire(int timeoutMs) {
     std::unique_lock<std::mutex> lock(poolMutex);
     SOEP_ASSERT(isInitialized, "connection pool is not initialized");
 
-    poolCondition.wait(lock, [this]() { return !pool.empty() || isShuttingDown; });
+    bool acquired = poolCondition.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return !pool.empty() || isShuttingDown; });
+
+    if (!acquired) {
+        spdlog::warn("timeout: failed to acquire db connection");
+    }
 
     if (isShuttingDown) {
         return nullptr;

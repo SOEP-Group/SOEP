@@ -13,7 +13,7 @@ namespace SOEP {
         void initialize(const std::string& connStr, size_t poolSize);
         void shutdown();
 
-        std::shared_ptr<DatabaseConnection> acquire();
+        std::shared_ptr<DatabaseConnection> acquire(int timeoutMs = 1000);
         void release(std::shared_ptr<DatabaseConnection> conn);
 
     private:

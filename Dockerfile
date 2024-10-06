@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     libcurl4-openssl-dev \
     libssl-dev \
-    libpqxx-dev
+    pkg-config
 
 WORKDIR /usr/src/SOEP
 

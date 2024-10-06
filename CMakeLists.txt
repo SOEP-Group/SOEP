@@ -26,6 +26,8 @@ if(WIN32)
         ${CMAKE_SOURCE_DIR}/libs/curl/lib/zlib.lib
     )
 
+    file(GLOB PQXX_LIBRARIES "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/*.lib")
+
     # Static linking requires additional libraries on Windows
     set(WIN_LIBS ws2_32 wldap32 crypt32 advapi32)
 
@@ -33,6 +35,7 @@ if(WIN32)
 
 else()
     find_package(CURL REQUIRED)
+    file(GLOB PQXX_LIBRARIES "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/*.a")
 endif()
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
@@ -58,12 +61,10 @@ target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 
 # Link libraries based on platform
 if(WIN32)
-    target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS})
+    target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS} ${PQXX_LIBRARIES})
 else()
-    target_link_libraries(SOEP PRIVATE CURL::libcurl)
+    target_link_libraries(SOEP PRIVATE CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES})
 endif()
-
-target_link_libraries(SOEP PRIVATE ${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx)
 
 # Copy .env file to the output directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/.env")
@@ -89,16 +90,14 @@ if(WIN32)
         )
     endforeach()
 
-    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.dll")
-    add_custom_command(TARGET SOEP POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.dll"
-        "$<TARGET_FILE_DIR:SOEP>/pqxx.dll"
-        COMMENT "Copying pqxx library file to output directory."
-    )
-    else()
-        message(WARNING "No  file detected, the program might crash. Blame Shakir.")
-    endif()
+    file(GLOB LIBPQXX_FILES "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/*")
+     foreach(LIBPQXX_FILE ${LIBPQXX_FILES})
+        add_custom_command(TARGET SOEP POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${LIBPQXX_FILE}"
+            $<TARGET_FILE_DIR:SOEP>
+        )
+    endforeach()
 elseif(UNIX)
     if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.a")
     add_custom_command(TARGET SOEP POST_BUILD

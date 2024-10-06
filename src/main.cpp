@@ -3,6 +3,8 @@
 #include "core/assert.h"
 #include "core/threadpool.h"
 #include "network/network.h"
+#include "database/database_connection.h"
+#include "database/pool/connection_pool.h"
 
 int main()
 {
@@ -13,26 +15,52 @@ int main()
 	SOEP::Network::Init();
 	SOEP::ThreadPool pool{ 10 };
 
-	// Keep the below commented for now, since we are not using the database connection currently
+	const char* dbname = std::getenv("DB_NAME");
+	const char* user = std::getenv("DB_USER");
+	const char* password = std::getenv("DB_PASSWORD");
+	const char* host = std::getenv("DB_HOST");
+	const char* port_str = std::getenv("DB_PORT");
 
-	// // Get database connection parameters from environment variables
-	// const char *dbname = std::getenv("DB_NAME");
-	// const char *user = std::getenv("DB_USER");
-	// const char *password = std::getenv("DB_PASSWORD");
-	// const char *host = std::getenv("DB_HOST");
-	// const char *port_str = std::getenv("DB_PORT");
+	SOEP_ASSERT(dbname != nullptr, "Error: DB_NAME environment variable is not set.");
+	SOEP_ASSERT(user != nullptr, "Error: DB_USER environment variable is not set.");
+	SOEP_ASSERT(password != nullptr, "Error: DB_PASSWORD environment variable is not set.");
+	SOEP_ASSERT(host != nullptr, "Error: DB_HOST environment variable is not set.");
+	SOEP_ASSERT(port_str != nullptr, "Error: DB_PORT environment variable is not set.");
 
-	// SOEP_ASSERT(dbname != nullptr, "Error: DB_NAME environment variable is not set.");
-	// SOEP_ASSERT(user != nullptr, "Error: DB_USER environment variable is not set.");
-	// SOEP_ASSERT(password != nullptr, "Error: DB_PASSWORD environment variable is not set.");
-	// SOEP_ASSERT(host != nullptr, "Error: DB_HOST environment variable is not set.");
-	// SOEP_ASSERT(port_str != nullptr, "Error: DB_PORT environment variable is not set.");
+	int port = std::stoi(port_str);
 
-	// int port = std::stoi(port_str);
+	std::string connString = "dbname=" + std::string(dbname) +
+		" user=" + std::string(user) +
+		" password=" + std::string(password) +
+		" host=" + std::string(host) +
+		" port=" + std::to_string(port);
 
-	// // Postgres connection
-	// DatabaseConnection dbConn(dbname, user, password, host, port);
-	// dbConn.getPostgresVersion();
+	SOEP::ConnectionPool& connPool = SOEP::ConnectionPool::getInstance();
+	connPool.initialize(connString, 10);
+
+	{
+		auto dbConn = connPool.acquire();
+		if (dbConn) { // change this block later when we have a db schema
+			dbConn->getDatabaseVersion();
+			dbConn->executeAdminQuery("CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name TEXT, age INT);");
+			connPool.release(dbConn);
+		}
+	}
+
+	// db test
+	/*
+	for (int i = 0; i < 20; ++i) {
+		pool.AddTask([&connPool, i]() {
+			auto dbConn = connPool.acquire();
+			if (dbConn) {
+				dbConn->test2Query("Ben" + std::to_string(i), 20 + i);
+				connPool.release(dbConn);
+			} else {
+				spdlog::error("failed to acquire dbconn");
+			}
+		});
+	}
+	*/
 
 	// Get API key from environment variable
 	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
@@ -85,6 +113,12 @@ int main()
 		spdlog::info("Longitude: {0}", position["satlongitude"].dump());
 		spdlog::info("Altitude: {0}", position["sataltitude"].dump());
 	}
+
+	pool.Await();
+
+	pool.Shutdown();
+
+	connPool.shutdown();
 
 	SOEP::Network::Shutdown();
 	SOEP_PROFILE_MARK_END;

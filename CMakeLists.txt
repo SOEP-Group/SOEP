@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(SOEP)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(include)
@@ -13,7 +13,7 @@ include_directories(libs/nlohmann/include)
 include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
-include_directories(libs/pqxx/include)
+
 
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 add_compile_definitions(TRACY_TIMER_FALLBACK)
@@ -27,6 +27,7 @@ if(WIN32)
     )
 
     file(GLOB PQXX_LIBRARIES "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/*.lib")
+    include_directories(libs/pqxx/include)
 
     # Static linking requires additional libraries on Windows
     set(WIN_LIBS ws2_32 wldap32 crypt32 advapi32)
@@ -35,7 +36,12 @@ if(WIN32)
 
 else()
     find_package(CURL REQUIRED)
-    file(GLOB PQXX_LIBRARIES "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/*.a")
+    find_package(PostgreSQL REQUIRED)
+    find_package(PostgreSQL REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PQXX REQUIRED libpqxx)
+    include_directories(${PQXX_INCLUDE_DIRS})
+    link_directories(${PQXX_LIBRARY_DIRS})
 endif()
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
@@ -99,10 +105,10 @@ if(WIN32)
         )
     endforeach()
 elseif(UNIX)
-    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.a")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a")
     add_custom_command(TARGET SOEP POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.a"
+        "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a"
         "$<TARGET_FILE_DIR:SOEP>/pqxx.a"
         COMMENT "Copying pqxx library file to output directory."
     )

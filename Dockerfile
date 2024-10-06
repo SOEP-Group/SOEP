@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     libcurl4-openssl-dev \
     libssl-dev \
+    libpqxx-dev \
     pkg-config
 
 WORKDIR /usr/src/SOEP
@@ -24,7 +25,7 @@ FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
     libcurl4 \
-    libssl3 \
+    libssl3  \
     libjsoncpp25 \
     libpqxx-dev
 

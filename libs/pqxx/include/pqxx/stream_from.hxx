@@ -160,7 +160,7 @@ public:
   /** @deprecated Use factories @ref table or @ref raw_table instead.
    */
   template<typename Iter>
-  [[deprecated("Use transaction_base::stream instead.")]] stream_from(
+  PQXX_DEPRECATED("Use transaction_base::stream instead.") stream_from(
     transaction_base &, from_table_t, std::string_view table,
     Iter columns_begin, Iter columns_end);
 
@@ -168,13 +168,13 @@ public:
   /** @deprecated Use factory function @ref query instead.
    */
   template<typename Columns>
-  [[deprecated("Use transaction_base::stream() instead.")]] stream_from(
+  PQXX_DEPRECATED("Use transaction_base::stream() instead.") stream_from(
     transaction_base &tx, from_table_t, std::string_view table,
     Columns const &columns);
 
 #include "pqxx/internal/ignore-deprecated-pre.hxx"
   /// @deprecated Use factories @ref table or @ref raw_table instead.
-  [[deprecated("Use transaction_base::stream instead.")]] stream_from(
+  PQXX_DEPRECATED("Use transaction_base::stream instead.") stream_from(
     transaction_base &tx, std::string_view table) :
           stream_from{tx, from_table, table}
   {}
@@ -182,14 +182,14 @@ public:
 
   /// @deprecated Use factories @ref table or @ref raw_table instead.
   template<typename Columns>
-  [[deprecated("Use transaction_base::stream instead.")]] stream_from(
+  PQXX_DEPRECATED("Use transaction_base::stream instead.") stream_from(
     transaction_base &tx, std::string_view table, Columns const &columns) :
           stream_from{tx, from_table, table, columns}
   {}
 
   /// @deprecated Use factories @ref table or @ref raw_table instead.
   template<typename Iter>
-  [[deprecated("Use transaction_base::stream instead.")]] stream_from(
+  PQXX_DEPRECATED("Use transaction_base::stream instead.") stream_from(
     transaction_base &, std::string_view table, Iter columns_begin,
     Iter columns_end);
 

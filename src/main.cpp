@@ -1,10 +1,8 @@
-#include <pqxx/pqxx>
 #include "pch.h"
 #include <dotenv/dotenv.h>
 #include "core/assert.h"
 #include "core/threadpool.h"
 #include "network/network.h"
-#include "database/database_connection.h"
 
 int main()
 {
@@ -13,7 +11,7 @@ int main()
 	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
 	dotenv::init();
 	SOEP::Network::Init();
-	SOEP::ThreadPool pool{10};
+	SOEP::ThreadPool pool{ 10 };
 
 	// Keep the below commented for now, since we are not using the database connection currently
 
@@ -37,7 +35,7 @@ int main()
 	// dbConn.getPostgresVersion();
 
 	// Get API key from environment variable
-	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
+	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 
@@ -54,17 +52,17 @@ int main()
 
 	// 1st, use call back to recieve and handle the result
 	auto promise = pool.AddTask(SOEP::Network::Call, url, [](std::shared_ptr<std::string> result)
-								{
-									auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
-									spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
-									spdlog::info("Positions:");
-									for (const auto &position : jsonResponse["positions"])
-									{
-										spdlog::info("Timestamp: {0}", position["timestamp"].dump());
-										spdlog::info("Latitude: {0}", position["satlatitude"].dump());
-										spdlog::info("Longitude: {0}", position["satlongitude"].dump());
-										spdlog::info("Altitude: {0}", position["sataltitude"].dump());
-									} }, nullptr, nullptr);
+		{
+			auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
+			spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
+			spdlog::info("Positions:");
+			for (const auto& position : jsonResponse["positions"])
+			{
+				spdlog::info("Timestamp: {0}", position["timestamp"].dump());
+				spdlog::info("Latitude: {0}", position["satlatitude"].dump());
+				spdlog::info("Longitude: {0}", position["satlongitude"].dump());
+				spdlog::info("Altitude: {0}", position["sataltitude"].dump());
+			} }, nullptr, nullptr);
 
 	// Will wait until every task is done, You dont HAVE to run this, this is only important if you want to wait for everything to be done
 	// It will freeze the main thread until every task is completed.
@@ -80,7 +78,7 @@ int main()
 
 	spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
 	spdlog::info("Positions:");
-	for (const auto &position : jsonResponse["positions"])
+	for (const auto& position : jsonResponse["positions"])
 	{
 		spdlog::info("Timestamp: {0}", position["timestamp"].dump());
 		spdlog::info("Latitude: {0}", position["satlatitude"].dump());

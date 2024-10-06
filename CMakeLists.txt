@@ -63,7 +63,7 @@ else()
     target_link_libraries(SOEP PRIVATE CURL::libcurl)
 endif()
 
-target_link_libraries(SOEP PRIVATE ${CMAKE_SOURCE_DIR}/libs/pqxx/lib/libpqxx.a pq)
+target_link_libraries(SOEP PRIVATE ${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx)
 
 # Copy .env file to the output directory
 if(EXISTS "${CMAKE_SOURCE_DIR}/.env")
@@ -88,4 +88,29 @@ if(WIN32)
             $<TARGET_FILE_DIR:SOEP>
         )
     endforeach()
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.dll")
+    add_custom_command(TARGET SOEP POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.dll"
+        "$<TARGET_FILE_DIR:SOEP>/pqxx.dll"
+        COMMENT "Copying pqxx library file to output directory."
+    )
+    else()
+        message(WARNING "No  file detected, the program might crash. Blame Shakir.")
+    endif()
+elseif(UNIX)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.a")
+    add_custom_command(TARGET SOEP POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/pqxx.a"
+        "$<TARGET_FILE_DIR:SOEP>/pqxx.a"
+        COMMENT "Copying pqxx library file to output directory."
+    )
+    else()
+        message(WARNING "No  file detected, the program might crash. Blame Shakir.")
+    endif()
 endif()
+
+
+

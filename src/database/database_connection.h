@@ -1,5 +1,4 @@
-#ifndef DATABASE_CONNECTION_H
-#define DATABASE_CONNECTION_H
+#pragma once
 
 #include <pqxx/pqxx>
 #include <string>
@@ -7,13 +6,11 @@
 class DatabaseConnection
 {
 public:
-    DatabaseConnection(const std::string &dbname, const std::string &user, const std::string &password, const std::string &host, int port);
-    ~DatabaseConnection();
+	DatabaseConnection(const std::string& dbname, const std::string& user, const std::string& password, const std::string& host, int port);
+	~DatabaseConnection();
 
-    void getPostgresVersion();
+	void getPostgresVersion();
 
 private:
-    pqxx::connection *conn;
+	pqxx::connection* conn;
 };
-
-#endif

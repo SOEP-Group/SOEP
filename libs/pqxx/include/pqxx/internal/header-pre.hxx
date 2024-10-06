@@ -101,6 +101,11 @@
 // Workarounds for Microsoft Visual C++
 #  ifdef _MSC_VER
 
+// Workarounds for deprecated attribute syntax error in Visual Studio 2017.
+#    if _MSC_VER < 1920
+#      define PQXX_DEPRECATED(MESSAGE) __declspec(deprecated( #MESSAGE ))
+#    endif
+
 // Suppress vtables on abstract classes.
 #    define PQXX_NOVTABLE __declspec(novtable)
 
@@ -170,6 +175,10 @@
 #  define PQXX_NOVTABLE /* novtable */
 #endif
 
+#ifndef PQXX_DEPRECATED
+#  define PQXX_DEPRECATED(MESSAGE) [[deprecated( #MESSAGE )]]
+#endif
+
 // C++20: Assume support.
 #if defined(PQXX_HAVE_LIKELY)
 #  define PQXX_LIKELY [[likely]]
@@ -182,6 +191,7 @@
 
 // C++23: Assume support.
 // C++20: Assume __has_cpp_attribute is defined.
+// XXX: Find places to apply [[assume(...)]].
 #if !defined(__has_cpp_attribute)
 #  define PQXX_ASSUME(condition) while (false)
 #elif !__has_cpp_attribute(assume)

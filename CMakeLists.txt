@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(SOEP)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(include)
@@ -14,6 +14,7 @@ include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
 
+
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 add_compile_definitions(TRACY_TIMER_FALLBACK)
 
@@ -25,6 +26,9 @@ if(WIN32)
         ${CMAKE_SOURCE_DIR}/libs/curl/lib/zlib.lib
     )
 
+    file(GLOB PQXX_LIBRARIES "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/*.lib")
+    include_directories(libs/pqxx/include)
+
     # Static linking requires additional libraries on Windows
     set(WIN_LIBS ws2_32 wldap32 crypt32 advapi32)
 
@@ -32,6 +36,7 @@ if(WIN32)
 
 else()
     find_package(CURL REQUIRED)
+    find_package(PostgreSQL REQUIRED)
     find_package(PostgreSQL REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(PQXX REQUIRED libpqxx)
@@ -62,7 +67,7 @@ target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 
 # Link libraries based on platform
 if(WIN32)
-    target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS})
+    target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS} ${PQXX_LIBRARIES})
 else()
     target_link_libraries(SOEP PRIVATE CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES})
 endif()
@@ -90,4 +95,27 @@ if(WIN32)
             $<TARGET_FILE_DIR:SOEP>
         )
     endforeach()
+
+    file(GLOB LIBPQXX_FILES "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/*")
+     foreach(LIBPQXX_FILE ${LIBPQXX_FILES})
+        add_custom_command(TARGET SOEP POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${LIBPQXX_FILE}"
+            $<TARGET_FILE_DIR:SOEP>
+        )
+    endforeach()
+elseif(UNIX)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a")
+    add_custom_command(TARGET SOEP POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a"
+        "$<TARGET_FILE_DIR:SOEP>/pqxx.a"
+        COMMENT "Copying pqxx library file to output directory."
+    )
+    else()
+        message(WARNING "No  file detected, the program might crash. Blame Shakir.")
+    endif()
 endif()
+
+
+

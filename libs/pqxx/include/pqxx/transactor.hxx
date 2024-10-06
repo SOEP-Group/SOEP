@@ -59,7 +59,8 @@ namespace pqxx
  * to confirm a commit.  It all depends on the type of exception.
  *
  * The callback takes no arguments.  If you're using lambdas, the easy way to
- * pass arguments is for the lambda to "capture" them from your variables.
+ * pass arguments is for the lambda to "capture" them from your variables.  Or,
+ * if you're using functions, you may want to use `std::bind`.
  *
  * Once your callback succeeds, it can return a result, and @ref perform will
  * return that result back to you.

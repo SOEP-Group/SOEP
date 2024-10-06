@@ -1,4 +1,3 @@
-#include <pqxx/pqxx>
 #include "pch.h"
 #include <dotenv/dotenv.h>
 #include "core/assert.h"
@@ -7,35 +6,34 @@
 #include "database/database_connection.h"
 #include "database/pool/connection_pool.h"
 
-
 int main()
 {
 	SOEP_PROFILE_FUNC();
-    spdlog::set_level(spdlog::level::trace);
-    SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
-    dotenv::init();
-    SOEP::Network::Init();
-    SOEP::ThreadPool pool{10};
+	spdlog::set_level(spdlog::level::trace);
+	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
+	dotenv::init();
+	SOEP::Network::Init();
+	SOEP::ThreadPool pool{ 10 };
 
-    const char* dbname = std::getenv("DB_NAME");
-    const char* user = std::getenv("DB_USER");
-    const char* password = std::getenv("DB_PASSWORD");
-    const char* host = std::getenv("DB_HOST");
-    const char* port_str = std::getenv("DB_PORT");
+	const char* dbname = std::getenv("DB_NAME");
+	const char* user = std::getenv("DB_USER");
+	const char* password = std::getenv("DB_PASSWORD");
+	const char* host = std::getenv("DB_HOST");
+	const char* port_str = std::getenv("DB_PORT");
 
-    SOEP_ASSERT(dbname != nullptr, "Error: DB_NAME environment variable is not set.");
-    SOEP_ASSERT(user != nullptr, "Error: DB_USER environment variable is not set.");
-    SOEP_ASSERT(password != nullptr, "Error: DB_PASSWORD environment variable is not set.");
-    SOEP_ASSERT(host != nullptr, "Error: DB_HOST environment variable is not set.");
-    SOEP_ASSERT(port_str != nullptr, "Error: DB_PORT environment variable is not set.");
+	SOEP_ASSERT(dbname != nullptr, "Error: DB_NAME environment variable is not set.");
+	SOEP_ASSERT(user != nullptr, "Error: DB_USER environment variable is not set.");
+	SOEP_ASSERT(password != nullptr, "Error: DB_PASSWORD environment variable is not set.");
+	SOEP_ASSERT(host != nullptr, "Error: DB_HOST environment variable is not set.");
+	SOEP_ASSERT(port_str != nullptr, "Error: DB_PORT environment variable is not set.");
 
-    int port = std::stoi(port_str);
+	int port = std::stoi(port_str);
 
 	std::string connString = "dbname=" + std::string(dbname) +
-							 " user=" + std::string(user) +
-							 " password=" + std::string(password) +
-							 " host=" + std::string(host) +
-							 " port=" + std::to_string(port);
+		" user=" + std::string(user) +
+		" password=" + std::string(password) +
+		" host=" + std::string(host) +
+		" port=" + std::to_string(port);
 
 	SOEP::ConnectionPool& connPool = SOEP::ConnectionPool::getInstance();
 	connPool.initialize(connString, 10);
@@ -52,20 +50,20 @@ int main()
 	// db test
 	/*
 	for (int i = 0; i < 20; ++i) {
-        pool.AddTask([&connPool, i]() {
-            auto dbConn = connPool.acquire();
-            if (dbConn) {
+		pool.AddTask([&connPool, i]() {
+			auto dbConn = connPool.acquire();
+			if (dbConn) {
 				dbConn->test2Query("Ben" + std::to_string(i), 20 + i);
-                connPool.release(dbConn);
-            } else {
-                spdlog::error("failed to acquire dbconn");
-            }
-        });
-    }
+				connPool.release(dbConn);
+			} else {
+				spdlog::error("failed to acquire dbconn");
+			}
+		});
+	}
 	*/
 
 	// Get API key from environment variable
-	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
+	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 
@@ -82,17 +80,17 @@ int main()
 
 	// 1st, use call back to recieve and handle the result
 	auto promise = pool.AddTask(SOEP::Network::Call, url, [](std::shared_ptr<std::string> result)
-								{
-									auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
-									spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
-									spdlog::info("Positions:");
-									for (const auto &position : jsonResponse["positions"])
-									{
-										spdlog::info("Timestamp: {0}", position["timestamp"].dump());
-										spdlog::info("Latitude: {0}", position["satlatitude"].dump());
-										spdlog::info("Longitude: {0}", position["satlongitude"].dump());
-										spdlog::info("Altitude: {0}", position["sataltitude"].dump());
-									} }, nullptr, nullptr);
+		{
+			auto jsonResponse = nlohmann::json::parse(result->begin(), result->end()); // We use iterators to avoid copying over the full string to the function
+			spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
+			spdlog::info("Positions:");
+			for (const auto& position : jsonResponse["positions"])
+			{
+				spdlog::info("Timestamp: {0}", position["timestamp"].dump());
+				spdlog::info("Latitude: {0}", position["satlatitude"].dump());
+				spdlog::info("Longitude: {0}", position["satlongitude"].dump());
+				spdlog::info("Altitude: {0}", position["sataltitude"].dump());
+			} }, nullptr, nullptr);
 
 	// Will wait until every task is done, You dont HAVE to run this, this is only important if you want to wait for everything to be done
 	// It will freeze the main thread until every task is completed.
@@ -108,7 +106,7 @@ int main()
 
 	spdlog::info("Satellite Name: {}", jsonResponse["info"]["satname"].dump());
 	spdlog::info("Positions:");
-	for (const auto &position : jsonResponse["positions"])
+	for (const auto& position : jsonResponse["positions"])
 	{
 		spdlog::info("Timestamp: {0}", position["timestamp"].dump());
 		spdlog::info("Latitude: {0}", position["satlatitude"].dump());
@@ -118,9 +116,9 @@ int main()
 
 	pool.Await();
 
-    pool.Shutdown();
+	pool.Shutdown();
 
-    connPool.shutdown();
+	connPool.shutdown();
 
 	SOEP::Network::Shutdown();
 	SOEP_PROFILE_MARK_END;

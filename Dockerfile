@@ -25,7 +25,7 @@ FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
     libcurl4 \
-    libssl3 \
+    libssl3  \
     libjsoncpp25 \
     libpqxx-dev
 

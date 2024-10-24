@@ -31,8 +31,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /usr/src/SOEP
 
+
 COPY --from=builder /usr/src/SOEP/build/SOEP /usr/src/SOEP/SOEP
 COPY --from=builder /usr/src/SOEP/build/.env /usr/src/SOEP/.env
+COPY --from=builder /usr/src/SOEP/resources /usr/src/SOEP/resources
 
 EXPOSE 8086
 

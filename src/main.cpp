@@ -5,9 +5,10 @@
 #include "network/network.h"
 #include "database/database_connection.h"
 #include "database/pool/connection_pool.h"
+#include "satellite_processor.h"
 
 int main()
-{
+{	
 	SOEP_PROFILE_FUNC();
 	spdlog::set_level(spdlog::level::trace);
 	SOEP::SOEP_SCOPE_TIMER("Main function"); // A timer that will end once scope has ended (a scope is everything within a block of {})
@@ -122,5 +123,12 @@ int main()
 
 	SOEP::Network::Shutdown();
 	SOEP_PROFILE_MARK_END;
+
+	SOEP::SatelliteProcessor processor(apiKey);
+	processor.invoke();
+
+
+
+
 	return 0;
 }

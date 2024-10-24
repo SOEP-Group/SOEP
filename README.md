@@ -32,3 +32,19 @@ Make sure you have the .env file in the root directory. You can find the latest 
 ```
 sudo apt-get update && sudo apt-get install -y g++ cmake libcurl4-openssl-dev libssl-dev libpqxx-dev libjsoncpp-dev
 ```
+
+## Tests
+
+To run the tests after building the project with cmake:
+
+```
+ctest --verbose
+```
+
+Or with the executable:
+
+```
+./SOEP_tests
+```
+
+And for Docker, the tests run automatically during the build process.

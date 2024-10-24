@@ -13,8 +13,7 @@ WORKDIR /usr/src/SOEP
 COPY . .
 
 RUN if [ ! -f ".env" ]; then \
-    echo -e "\033[0;31mERROR: .env file not found.\033[0m"; \
-    exit 1; \
+    echo -e "\033[0;31mERROR: No .env file detected, the program might crash. Ask Shakir for it.\033[0m"; \
     fi
 
 RUN rm -rf build && mkdir build

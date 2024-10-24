@@ -13,5 +13,8 @@ namespace SOEP {
         void processSatelliteTLEData(int id, std::string& TLEData);
 
         std::string m_ApiKey;
+        std::string fetchData(const int satelliteId);
+        std::string feedIntoSgp4(const std::string tle);
+        std::string saveToDb(const std::string data);
     };
 }

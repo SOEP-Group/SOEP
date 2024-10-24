@@ -4,6 +4,7 @@
 #include "database/pool/connection_pool.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <fstream>  // For reading the JSON file
 
 namespace SOEP {
     SatelliteProcessor::SatelliteProcessor(const std::string& apiKey) : m_ApiKey(apiKey) {}

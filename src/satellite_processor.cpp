@@ -2,6 +2,7 @@
 #include "network/network.h"
 #include "core/threadpool.h"
 #include "database/pool/connection_pool.h"
+#include "db_RAII.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -33,13 +34,14 @@ namespace SOEP {
 
         // db
 
-        auto dbConn = ConnectionPool::getInstance().acquire();
+        auto& connPool = ConnectionPool::getInstance();
+        ScopedDbConn scope(connPool);
+        auto dbConn = scope.get();
 
         std::string query = "";
 
         if (dbConn) {
             dbConn->executeUpdateQuery(query);
-            ConnectionPool::getInstance().release(dbConn);
         } else {
             spdlog::error("failed to acquire database connection");
         }

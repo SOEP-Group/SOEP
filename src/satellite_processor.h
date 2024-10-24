@@ -10,7 +10,7 @@ namespace SOEP {
 
     private:
         void fetchSatelliteTLEData(int id);
-        void processSatelliteTLEData(int id, std::string& TLEData);
+        void processSatelliteTLEData(int id, std::string& tle_data);
 
         std::string m_ApiKey;
     };

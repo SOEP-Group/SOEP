@@ -14,7 +14,6 @@ include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
 
-
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 add_compile_definitions(TRACY_TIMER_FALLBACK)
 
@@ -69,7 +68,7 @@ target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
 if(WIN32)
     target_link_libraries(SOEP PRIVATE ${CURL_LIBRARIES} ${WIN_LIBS} ${PQXX_LIBRARIES})
 else()
-    target_link_libraries(SOEP PRIVATE CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES})
+    target_link_libraries(SOEP PRIVATE CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES} pq)
 endif()
 
 # Copy .env file to the output directory
@@ -97,7 +96,8 @@ if(WIN32)
     endforeach()
 
     file(GLOB LIBPQXX_FILES "${CMAKE_SOURCE_DIR}/libs/pqxx/bin/*")
-     foreach(LIBPQXX_FILE ${LIBPQXX_FILES})
+
+    foreach(LIBPQXX_FILE ${LIBPQXX_FILES})
         add_custom_command(TARGET SOEP POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${LIBPQXX_FILE}"
@@ -106,16 +106,13 @@ if(WIN32)
     endforeach()
 elseif(UNIX)
     if(EXISTS "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a")
-    add_custom_command(TARGET SOEP POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a"
-        "$<TARGET_FILE_DIR:SOEP>/pqxx.a"
-        COMMENT "Copying pqxx library file to output directory."
-    )
+        add_custom_command(TARGET SOEP POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/libs/pqxx/lib/pqxx.a"
+            "$<TARGET_FILE_DIR:SOEP>/pqxx.a"
+            COMMENT "Copying pqxx library file to output directory."
+        )
     else()
         message(WARNING "No  file detected, the program might crash. Blame Shakir.")
     endif()
 endif()
-
-
-

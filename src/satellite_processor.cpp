@@ -11,7 +11,41 @@ namespace SOEP {
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
-    void SatelliteProcessor::invoke() {}
+     void SatelliteProcessor::invoke(){
+        SOEP::ThreadPool pool{ 10 };
+
+        // Path to your NORAD IDs JSON file
+        std::string jsonFilePath = "./resources/norad_ids.json"; 
+        
+        // Read and parse the JSON file
+        std::ifstream jsonFile(jsonFilePath);
+        if (!jsonFile.is_open()) {
+            spdlog::error("Failed to open NORAD IDs JSON file: {}", jsonFilePath);
+            return;
+        }
+
+        nlohmann::json noradJson;
+        try {
+            jsonFile >> noradJson;
+        } catch (const std::exception& e) {
+            spdlog::error("Error parsing JSON file: {}", e.what());
+            return;
+        }
+
+        // Ensure it's an array of NORAD IDs
+        if (!noradJson.is_array()) {
+            spdlog::error("JSON format is invalid, expected an array of NORAD IDs.");
+            return;
+        }
+
+        for (const auto& id : noradJson) {
+            pool.AddTask([this, id]() {
+                this->fetchSatelliteTLEData(id);
+            });
+        }
+
+
+    }
 
     void SatelliteProcessor::fetchSatelliteTLEData(int id) {
 

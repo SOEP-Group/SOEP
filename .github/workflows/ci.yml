@@ -33,3 +33,8 @@ jobs:
           cd build
           cmake ..
           cmake --build .
+
+      - name: Run tests with CTest
+        run: |
+          cd build
+          ctest --verbose

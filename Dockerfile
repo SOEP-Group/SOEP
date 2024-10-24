@@ -19,6 +19,7 @@ RUN if [ ! -f ".env" ]; then \
 RUN rm -rf build && mkdir build
 WORKDIR /usr/src/SOEP/build
 RUN cmake .. && cmake --build .
+RUN ctest --verbose
 
 FROM ubuntu:22.04
 

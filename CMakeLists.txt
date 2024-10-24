@@ -13,9 +13,21 @@ include_directories(libs/nlohmann/include)
 include_directories(libs/dotenv/include)
 include_directories(libs/spdlog/include)
 include_directories(libs/tracy/public)
+include_directories(libs/catch2)
 
 add_compile_definitions(TRACY_ENABLE) # Needed for tracy to work
 add_compile_definitions(TRACY_TIMER_FALLBACK)
+
+add_library(SOEP_lib
+    src/database/database_connection.cpp
+    src/database/query_exec.cpp
+    src/database/transactions.cpp
+    src/database/pool/connection_pool.cpp
+    src/core/threadpool.cpp
+    src/network/network.cpp
+)
+
+target_include_directories(SOEP_lib PUBLIC src)
 
 if(WIN32)
     message(STATUS "Using local static curl on Windows")
@@ -35,7 +47,6 @@ if(WIN32)
 
 else()
     find_package(CURL REQUIRED)
-    find_package(PostgreSQL REQUIRED)
     find_package(PostgreSQL REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(PQXX REQUIRED libpqxx)
@@ -63,6 +74,22 @@ endif()
 add_executable(SOEP ${SRC_FILES} ${TRACY_SOURCES})
 
 target_precompile_headers(SOEP PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
+
+if(WIN32)
+    target_link_libraries(SOEP_lib PUBLIC ${CURL_LIBRARIES} ${WIN_LIBS} ${PQXX_LIBRARIES})
+else()
+    target_link_libraries(SOEP_lib PUBLIC CURL::libcurl ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES} pq)
+endif()
+
+add_executable(SOEP_tests
+    tests/test_main.cpp
+    libs/catch2/catch_amalgamated.cpp
+)
+
+target_link_libraries(SOEP_tests PRIVATE SOEP_lib)
+
+enable_testing()
+add_test(NAME SOEPTests COMMAND SOEP_tests)
 
 # Link libraries based on platform
 if(WIN32)

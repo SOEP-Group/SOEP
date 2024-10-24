@@ -28,26 +28,8 @@ jobs:
           sudo apt-get install -y g++ cmake libcurl4-openssl-dev libssl-dev libpqxx-dev libjsoncpp-dev
 
       - name: Build with CMake
-        env:
-          N2YO_API_KEY: ${{ secrets.N2YO_API_KEY }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
         run: |
           mkdir -p build
           cd build
           cmake ..
           cmake --build .
-
-      - name: Build Docker image
-        env:
-          N2YO_API_KEY: ${{ secrets.N2YO_API_KEY }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-        run: |
-          docker build -t soep .

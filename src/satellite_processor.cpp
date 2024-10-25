@@ -8,6 +8,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <cstdlib>
 #include <algorithm>
 
 namespace SOEP {
@@ -91,7 +92,7 @@ namespace SOEP {
         // construct the Python command
         std::ostringstream command;
         command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-                << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
+                << tle_line1 << "', '" << tle_line2 << "', 0, 10, 1); print(result)\""; // 1440
 
         // execute the command and capture output
         FILE* pipe = popen(command.str().c_str(), "r");
@@ -112,14 +113,23 @@ namespace SOEP {
         } /*else {
             spdlog::info("Satellite {} propagation result: {}", id, result);
         }*/
-        
-        // parse result and store in db
-        std::istringstream ss(result);
-        std::string line;
 
-        if (!std::getline(ss, line)) {
-            spdlog::error("No data for satellite: {}", id);
-            return;
+        if (!result.empty() && result.front() == '[') result.erase(0, 1);
+        if (!result.empty() && result.back() == ']') result.pop_back();
+
+        size_t pos_2 = 0;
+        while ((pos_2 = result.find("), (", pos_2)) != std::string::npos) {
+            result.replace(pos_2, 4, ")|(");
+            pos_2 += 3;
+        }
+
+        std::vector<std::string> tuples;
+        std::stringstream ss(result);
+        std::string tupleStr;
+        while (std::getline(ss, tupleStr, '|')) {
+            if (!tupleStr.empty() && tupleStr.front() == '(') tupleStr.erase(0, 1);
+            if (!tupleStr.empty() && tupleStr.back() == ')') tupleStr.pop_back();
+            tuples.push_back(tupleStr);
         }
 
         auto& connPool = ConnectionPool::getInstance();
@@ -133,31 +143,33 @@ namespace SOEP {
         try {
             conn->beginTransaction();
 
-            while (std::getline(ss, line)) {
-                if (line.empty()) continue;
-
-                std::istringstream lineStream(line);
+            for (const auto& tupleStr : tuples) {
+                std::istringstream lineStream(tupleStr);
                 std::string token;
                 std::vector<double> values;
+
                 while (std::getline(lineStream, token, ',')) {
+                    token.erase(0, token.find_first_not_of(" \t"));
+                    token.erase(token.find_last_not_of(" \t") + 1);
+
                     values.push_back(std::stod(token));
                 }
 
                 if (values.size() != 7) {
-                    spdlog::error("wrong data format for satellite {}: {}", id, line);
+                    spdlog::error("wrong data format for satellite {}: {}", id, tupleStr);
                     continue;
                 }
 
-                std::string query = "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
+                std::string query = "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, "
+                                    "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
                                     "VALUES ($1, $2, $3, $4, $5, $6, $7, $8);";
-                conn->executeUpdateQuery(query, id, values[0], values[1], values[2], values[3], values[4], values[5], values[6]);
+                conn->executeUpdateQuery(query, id, values[0], values[1], values[2], values[3],
+                                        values[4], values[5], values[6]);
             }
 
             conn->commitTransaction();
-            spdlog::info("stored data for satellite: {}", id);
         } catch (const std::exception& e) {
             conn->rollbackTransaction();
-            spdlog::error("db error for satellite: {}: {}", id, e.what());
         }
     }
 }

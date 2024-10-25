@@ -1,9 +1,11 @@
 #pragma once
 
+#include <string>
+
 namespace SOEP {
     class SatelliteProcessor {
     public:
-        SatelliteProcessor(const std::string& apiKey);
+        SatelliteProcessor(const std::string& apiKey, int numSatellites = 3000);
         ~SatelliteProcessor();
 
         void invoke();
@@ -13,5 +15,6 @@ namespace SOEP {
         void processSatelliteTLEData(int id, std::string& tle_data);
 
         std::string m_ApiKey;
+        int m_NumSatellites;
     };
 }

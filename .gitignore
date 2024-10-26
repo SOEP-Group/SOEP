@@ -37,7 +37,7 @@ CMakeUserPresets.json
 **.csproj
 
 # Output directories
-bin/
+#bin/
 build/
 .vscode/
 .vs/

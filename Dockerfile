@@ -44,7 +44,7 @@ WORKDIR /usr/src/SOEP
 COPY --from=builder /usr/src/SOEP/build/SOEP /usr/src/SOEP/SOEP
 COPY --from=builder /usr/src/SOEP/build/.env /usr/src/SOEP/.env
 COPY --from=builder /usr/src/SOEP/resources /usr/src/SOEP/resources
-COPY --from=builder /usr/src/SOEP/sgp4_module.cpython-310-x86_64-linux-gnu.so /usr/src/SOEP/sgp4_module.cpython-310-x86_64-linux-gnu.so
+COPY --from=builder /usr/src/SOEP/bin/sgp4_module.cpython-310-x86_64-linux-gnu.so /usr/src/SOEP/sgp4_module.cpython-310-x86_64-linux-gnu.so
 
 ENV PYTHONPATH=/usr/src/SOEP
 

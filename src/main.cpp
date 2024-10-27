@@ -42,7 +42,7 @@ int main()
 		auto dbConn = connPool.acquire();
 		if (dbConn) {
 			dbConn->getDatabaseVersion();
-			// assuming our db schema will look something like this, a table for a satellite
+			// assuming our db schema will look something like this
 			dbConn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data("
 				"id SERIAL PRIMARY KEY, "

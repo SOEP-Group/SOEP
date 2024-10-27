@@ -1,14 +1,9 @@
+#include "pch.h"
 #include "satellite_processor.h"
 #include "network/network.h"
 #include "core/threadpool.h"
 #include "database/pool/connection_pool.h"
 #include "db_RAII.h"
-#include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <algorithm>
 
 namespace SOEP {
     SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)

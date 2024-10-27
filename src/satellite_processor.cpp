@@ -8,7 +8,6 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-#include <cstdlib>
 #include <algorithm>
 
 namespace SOEP {
@@ -91,8 +90,10 @@ namespace SOEP {
 
         // construct the Python command
         std::ostringstream command;
+
+        // args: tle_line1: str, tle_line2: str, start_time: float, stop_time: float, step_size: float
         command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-                << tle_line1 << "', '" << tle_line2 << "', 0, 10, 1); print(result)\""; // 1440
+                << tle_line1 << "', '" << tle_line2 << "', 0, 10, 1); print(result)\""; // stop_time = 1440
 
         // execute the command and capture output
         FILE* pipe = popen(command.str().c_str(), "r");
@@ -114,22 +115,13 @@ namespace SOEP {
             spdlog::info("Satellite {} propagation result: {}", id, result);
         }*/
 
-        if (!result.empty() && result.front() == '[') result.erase(0, 1);
-        if (!result.empty() && result.back() == ']') result.pop_back();
-
-        size_t pos_2 = 0;
-        while ((pos_2 = result.find("), (", pos_2)) != std::string::npos) {
-            result.replace(pos_2, 4, ")|(");
-            pos_2 += 3;
-        }
-
-        std::vector<std::string> tuples;
-        std::stringstream ss(result);
-        std::string tupleStr;
-        while (std::getline(ss, tupleStr, '|')) {
-            if (!tupleStr.empty() && tupleStr.front() == '(') tupleStr.erase(0, 1);
-            if (!tupleStr.empty() && tupleStr.back() == ')') tupleStr.pop_back();
-            tuples.push_back(tupleStr);
+        // parse and store data
+        nlohmann::json jsonResult;
+        try {
+            jsonResult = nlohmann::json::parse(result);
+        } catch (const std::exception& e) {
+            spdlog::error("Error parsing JSON result for satellite {}: {}", id, e.what());
+            return;
         }
 
         auto& connPool = ConnectionPool::getInstance();
@@ -143,28 +135,27 @@ namespace SOEP {
         try {
             conn->beginTransaction();
 
-            for (const auto& tupleStr : tuples) {
-                std::istringstream lineStream(tupleStr);
-                std::string token;
-                std::vector<double> values;
-
-                while (std::getline(lineStream, token, ',')) {
-                    token.erase(0, token.find_first_not_of(" \t"));
-                    token.erase(token.find_last_not_of(" \t") + 1);
-
-                    values.push_back(std::stod(token));
-                }
-
-                if (values.size() != 7) {
-                    spdlog::error("wrong data format for satellite {}: {}", id, tupleStr);
+            for (const auto& record : jsonResult) {
+                if (!record.contains("tsince_min") || !record.contains("x_km") || !record.contains("y_km") ||
+                    !record.contains("z_km") || !record.contains("xdot_km_per_s") ||
+                    !record.contains("ydot_km_per_s") || !record.contains("zdot_km_per_s")) {
+                    spdlog::error("wrong data format for satellite {}: {}", id, record.dump());
                     continue;
                 }
 
-                std::string query = "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, "
-                                    "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8);";
-                conn->executeUpdateQuery(query, id, values[0], values[1], values[2], values[3],
-                                        values[4], values[5], values[6]);
+                conn->executeUpdateQuery(
+                    "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, "
+                    "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8);",
+                    id,
+                    record["tsince_min"].get<double>(),
+                    record["x_km"].get<double>(),
+                    record["y_km"].get<double>(),
+                    record["z_km"].get<double>(),
+                    record["xdot_km_per_s"].get<double>(),
+                    record["ydot_km_per_s"].get<double>(),
+                    record["zdot_km_per_s"].get<double>()
+                );
             }
 
             conn->commitTransaction();

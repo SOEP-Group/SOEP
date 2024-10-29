@@ -6,10 +6,7 @@ RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
     libpqxx-dev \
-    python3 \
-    python3-dev \
-    python3-pip \
-    pkg-config  
+    pkg-config
 
 WORKDIR /usr/src/SOEP
 
@@ -30,24 +27,12 @@ RUN apt-get update && apt-get install -y \
     libcurl4 \
     libssl3  \
     libjsoncpp25 \
-    python3 \
-    python3-dev \
-    python3-pip \
     libpqxx-dev
-
-RUN pip3 install sgp4
-
 
 WORKDIR /usr/src/SOEP
 
-
 COPY --from=builder /usr/src/SOEP/build/SOEP /usr/src/SOEP/SOEP
 COPY --from=builder /usr/src/SOEP/build/.env /usr/src/SOEP/.env
-COPY --from=builder /usr/src/SOEP/resources /usr/src/SOEP/resources
-COPY --from=builder /usr/src/SOEP/bin/sgp4_module.cpython-310-x86_64-linux-gnu.so /usr/src/SOEP/sgp4_module.cpython-310-x86_64-linux-gnu.so
-
-ENV PYTHONPATH=/usr/src/SOEP
-
 
 EXPOSE 8086
 

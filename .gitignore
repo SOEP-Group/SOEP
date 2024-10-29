@@ -37,14 +37,10 @@ CMakeUserPresets.json
 **.csproj
 
 # Output directories
-#bin/
+bin/
 build/
 .vscode/
 .vs/
 out/
 *.env
 data/
-
-# sgp4
-sgp4/build/
-sgp4/*.c

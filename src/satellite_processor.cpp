@@ -55,13 +55,14 @@ namespace SOEP {
         Network::Call(url, [this, id](std::shared_ptr<std::string> result) {
             if (result && !result->empty()) {
                 nlohmann::json jsonResponse;
+                std::string tle_data;
                 try {
                     jsonResponse = nlohmann::json::parse(*result);
-                    std::string tle_data = jsonResponse["tle"];
-                    this->processSatelliteTLEData(id, tle_data);
+                    tle_data = jsonResponse["tle"];
                 } catch (const std::exception& e) {
                     spdlog::error("Error parsing TLE data from id {}: {}", id, e.what());
                 }
+                this->processSatelliteTLEData(id, tle_data);
             } else {
                 spdlog::error("Failed fetching TLE data for id {}", id);
             }

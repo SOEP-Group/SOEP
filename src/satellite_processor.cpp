@@ -5,54 +5,63 @@
 #include "database/pool/connection_pool.h"
 #include "db_RAII.h"
 
-namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)
+namespace SOEP
+{
+    SatelliteProcessor::SatelliteProcessor(const std::string &apiKey, int numSatellites)
         : m_ApiKey(apiKey), m_NumSatellites(numSatellites) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
-    void SatelliteProcessor::invoke() {
-        SOEP::ThreadPool pool{ 20 };
+    void SatelliteProcessor::invoke()
+    {
+        SOEP::ThreadPool pool{20};
 
-        std::string jsonFilePath = "./resources/norad_ids.json"; 
-        
+        std::string jsonFilePath = "./resources/norad_ids.json";
+
         std::ifstream jsonFile(jsonFilePath);
-        if (!jsonFile.is_open()) {
+        if (!jsonFile.is_open())
+        {
             spdlog::error("Failed to open NORAD IDs JSON file: {}", jsonFilePath);
             return;
         }
 
         nlohmann::json noradJson;
-        try {
+        try
+        {
             jsonFile >> noradJson;
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception &e)
+        {
             spdlog::error("Error parsing JSON file: {}", e.what());
             return;
         }
 
-        if (!noradJson.is_array()) {
+        if (!noradJson.is_array())
+        {
             spdlog::error("JSON format is invalid, expected an array of NORAD IDs.");
             return;
         }
 
         int numToProcess = std::min(m_NumSatellites, static_cast<int>(noradJson.size()));
 
-        for (int i = 0; i < numToProcess; i++) {
-            pool.AddTask([this, id = noradJson[i]]() {
-                this->fetchSatelliteTLEData(id);
-            });
+        for (int i = 0; i < numToProcess; i++)
+        {
+            pool.AddTask([this, id = noradJson[i]]()
+                         { this->fetchSatelliteTLEData(id); });
         }
 
         pool.Await();
         pool.Shutdown();
     }
 
-    void SatelliteProcessor::fetchSatelliteTLEData(int id) {
+    void SatelliteProcessor::fetchSatelliteTLEData(int id)
+    {
         std::string url = "https://api.n2yo.com/rest/v1/satellite/tle/" +
-                        std::to_string(id) + "/" +
-                        "&apiKey=" + m_ApiKey;
+                          std::to_string(id) + "/" +
+                          "&apiKey=" + m_ApiKey;
 
-        Network::Call(url, [this, id](std::shared_ptr<std::string> result) {
+        Network::Call(url, [this, id](std::shared_ptr<std::string> result)
+                      {
             if (result && !result->empty()) {
                 nlohmann::json jsonResponse;
                 std::string tle_data;
@@ -65,14 +74,14 @@ namespace SOEP {
                 this->processSatelliteTLEData(id, tle_data);
             } else {
                 spdlog::error("Failed fetching TLE data for id {}", id);
-            }
-        }, nullptr, nullptr);
+            } }, nullptr, nullptr);
     }
 
-
-    void SatelliteProcessor::processSatelliteTLEData(int id, std::string& tle_data) {
+    void SatelliteProcessor::processSatelliteTLEData(int id, std::string &tle_data)
+    {
         size_t pos = tle_data.find("\r\n");
-        if (pos == std::string::npos) {
+        if (pos == std::string::npos)
+        {
             spdlog::error("Invalid TLE data format for satellite: {}", id);
             return;
         }
@@ -92,20 +101,23 @@ namespace SOEP {
                 << tle_line1 << "', '" << tle_line2 << "', 0, 10, 1); print(result)\""; // stop_time = 1440
 
         // execute the command and capture output
-        FILE* pipe = popen(command.str().c_str(), "r");
-        if (!pipe) {
+        FILE *pipe = popen(command.str().c_str(), "r");
+        if (!pipe)
+        {
             spdlog::error("Failed to run Python script for satellite {}", id);
             return;
         }
 
         char buffer[128];
         std::string result = "";
-        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
+        {
             result += buffer;
         }
 
         int returnCode = pclose(pipe);
-        if (returnCode != 0) {
+        if (returnCode != 0)
+        {
             spdlog::error("Error running Python script for satellite {}", id);
         } /*else {
             spdlog::info("Satellite {} propagation result: {}", id, result);
@@ -113,28 +125,35 @@ namespace SOEP {
 
         // parse and store data
         nlohmann::json jsonResult;
-        try {
+        try
+        {
             jsonResult = nlohmann::json::parse(result);
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception &e)
+        {
             spdlog::error("Error parsing JSON result for satellite {}: {}", id, e.what());
             return;
         }
 
-        auto& connPool = ConnectionPool::getInstance();
+        auto &connPool = ConnectionPool::getInstance();
         ScopedDbConn dbConn(connPool);
         auto conn = dbConn.get();
-        if (!conn) {
+        if (!conn)
+        {
             spdlog::error("failed to aquire db connection for satellite: {}", id);
             return;
         }
 
-        try {
+        try
+        {
             conn->beginTransaction();
 
-            for (const auto& record : jsonResult) {
+            for (const auto &record : jsonResult)
+            {
                 if (!record.contains("tsince_min") || !record.contains("x_km") || !record.contains("y_km") ||
                     !record.contains("z_km") || !record.contains("xdot_km_per_s") ||
-                    !record.contains("ydot_km_per_s") || !record.contains("zdot_km_per_s")) {
+                    !record.contains("ydot_km_per_s") || !record.contains("zdot_km_per_s"))
+                {
                     spdlog::error("wrong data format for satellite {}: {}", id, record.dump());
                     continue;
                 }
@@ -150,12 +169,13 @@ namespace SOEP {
                     record["z_km"].get<double>(),
                     record["xdot_km_per_s"].get<double>(),
                     record["ydot_km_per_s"].get<double>(),
-                    record["zdot_km_per_s"].get<double>()
-                );
+                    record["zdot_km_per_s"].get<double>());
             }
 
             conn->commitTransaction();
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception &e)
+        {
             conn->rollbackTransaction();
         }
     }

@@ -15,11 +15,11 @@ int main()
 	dotenv::init();
 	SOEP::Network::Init();
 
-	const char* dbname = std::getenv("DB_NAME");
-	const char* user = std::getenv("DB_USER");
-	const char* password = std::getenv("DB_PASSWORD");
-	const char* host = std::getenv("DB_HOST");
-	const char* port_str = std::getenv("DB_PORT");
+	const char *dbname = std::getenv("DB_NAME");
+	const char *user = std::getenv("DB_USER");
+	const char *password = std::getenv("DB_PASSWORD");
+	const char *host = std::getenv("DB_HOST");
+	const char *port_str = std::getenv("DB_PORT");
 
 	SOEP_ASSERT(dbname != nullptr, "Error: DB_NAME environment variable is not set.");
 	SOEP_ASSERT(user != nullptr, "Error: DB_USER environment variable is not set.");
@@ -30,38 +30,45 @@ int main()
 	int port = std::stoi(port_str);
 
 	std::string connString = "dbname=" + std::string(dbname) +
-		" user=" + std::string(user) +
-		" password=" + std::string(password) +
-		" host=" + std::string(host) +
-		" port=" + std::to_string(port);
+							 " user=" + std::string(user) +
+							 " password=" + std::string(password) +
+							 " host=" + std::string(host) +
+							 " port=" + std::to_string(port);
 
-	SOEP::ConnectionPool& connPool = SOEP::ConnectionPool::getInstance();
+	SOEP::ConnectionPool &connPool = SOEP::ConnectionPool::getInstance();
 	connPool.initialize(connString, 10);
 
 	{
 		auto dbConn = connPool.acquire();
-		if (dbConn) {
+		if (dbConn)
+		{
 			dbConn->getDatabaseVersion();
-			// assuming our db schema will look something like this
 			dbConn->executeAdminQuery(
-				"CREATE TABLE IF NOT EXISTS satellite_data("
-				"id SERIAL PRIMARY KEY, "
-				"satellite_id INT NOT NULL, "
-				"tsince_min DOUBLE PRECISION, "
-				"x_km DOUBLE PRECISION, "
-				"y_km DOUBLE PRECISION, "
-				"z_km DOUBLE PRECISION, "
-				"xdot_km_per_s DOUBLE PRECISION, "
-				"ydot_km_per_s DOUBLE PRECISION, "
-				"zdot_km_per_s DOUBLE PRECISION"
-				");"
-			);
+				"CREATE TABLE IF NOT EXISTS satellites ("
+				"satellite_id INTEGER PRIMARY KEY, "
+				"name TEXT NOT NULL"
+				");");
+			dbConn->executeAdminQuery(
+				"CREATE TABLE IF NOT EXISTS satellite_data ("
+				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
+				"timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL, "
+				"x_km DOUBLE PRECISION NOT NULL, "
+				"y_km DOUBLE PRECISION NOT NULL, "
+				"z_km DOUBLE PRECISION NOT NULL, "
+				"xdot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"ydot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"zdot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"PRIMARY KEY (satellite_id, timestamp)"
+				");");
+			dbConn->executeAdminQuery(
+				"SELECT create_hypertable('satellite_data', 'timestamp', if_not_exists => TRUE);");
+
 			connPool.release(dbConn);
 		}
 	}
 
 	// Get API key from environment variable
-	const char* apiKeyEnv = std::getenv("N2YO_API_KEY");
+	const char *apiKeyEnv = std::getenv("N2YO_API_KEY");
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 

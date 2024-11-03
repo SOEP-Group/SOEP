@@ -6,6 +6,12 @@
 #include "db_RAII.h"
 
 namespace SOEP {
+    struct SatelliteInfo {
+        int norad_id;
+        std::string name;
+        std::string source;
+    };
+
     SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)
         : m_ApiKey(apiKey), m_NumSatellites(numSatellites) {}
 
@@ -14,7 +20,7 @@ namespace SOEP {
     void SatelliteProcessor::invoke() {
         SOEP::ThreadPool pool{ 20 };
 
-        std::string jsonFilePath = "./resources/norad_ids.json"; 
+        std::string jsonFilePath = "./resources/satellite_data.json";
         
         std::ifstream jsonFile(jsonFilePath);
         if (!jsonFile.is_open()) {
@@ -31,17 +37,40 @@ namespace SOEP {
         }
 
         if (!noradJson.is_array()) {
-            spdlog::error("JSON format is invalid, expected an array of NORAD IDs.");
+            spdlog::error("JSON format is invalid, expected an array of satellite objects.");
             return;
         }
 
-        int numToProcess = std::min(m_NumSatellites, static_cast<int>(noradJson.size()));
+        std::vector<SatelliteInfo> satellites;
+
+        for (const auto& item : noradJson) {
+            if (!item.contains("NORAD_ID") || !item.contains("Current_Official_Name") || !item.contains("Source")) {
+                spdlog::error("invalid satellite data format: {}", item.dump());
+                continue;
+            }
+
+            SatelliteInfo info;
+            info.norad_id = item["NORAD_ID"];
+            info.name = item["Current_Official_Name"];
+            info.source = item["Source"].is_null() ? "" : item["Source"];
+            satellites.push_back(info);
+        }
+
+        spdlog::info("{}", satellites.size());
+        spdlog::info("{} {} {}", satellites.at(0).norad_id, satellites.at(0).name, satellites.at(0).source);
+
+        // store satellites in db
+        {
+
+        }
+
+        /*int numToProcess = std::min(m_NumSatellites, static_cast<int>(noradJson.size()));
 
         for (int i = 0; i < numToProcess; i++) {
             pool.AddTask([this, id = noradJson[i]]() {
                 this->fetchSatelliteTLEData(id);
             });
-        }
+        }*/
 
         pool.Await();
         pool.Shutdown();

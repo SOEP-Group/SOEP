@@ -11,10 +11,12 @@ namespace SOEP {
         void invoke();
 
     private:
+        bool fetchNoradIds();
         void fetchSatelliteTLEData(int id);
         void processSatelliteTLEData(int id, std::string& tle_data);
 
         std::string m_ApiKey;
         int m_NumSatellites;
+        std::vector<int> m_NoradIds;
     };
 }

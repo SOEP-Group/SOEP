@@ -6,12 +6,6 @@
 #include "db_RAII.h"
 
 namespace SOEP {
-    struct SatelliteInfo {
-        int norad_id;
-        std::string name;
-        std::string source;
-    };
-
     SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)
         : m_ApiKey(apiKey), m_NumSatellites(numSatellites) {}
 
@@ -20,60 +14,46 @@ namespace SOEP {
     void SatelliteProcessor::invoke() {
         SOEP::ThreadPool pool{ 20 };
 
-        std::string jsonFilePath = "./resources/satellite_data.json";
-        
-        std::ifstream jsonFile(jsonFilePath);
-        if (!jsonFile.is_open()) {
-            spdlog::error("Failed to open NORAD IDs JSON file: {}", jsonFilePath);
+        if (!fetchNoradIds()) {
+            spdlog::error("process terminated. no API calls or alterations in the db was made");
             return;
         }
 
-        nlohmann::json noradJson;
-        try {
-            jsonFile >> noradJson;
-        } catch (const std::exception& e) {
-            spdlog::error("Error parsing JSON file: {}", e.what());
-            return;
-        }
+        int numToProcess = std::min(m_NumSatellites, static_cast<int>(m_NoradIds.size()));
 
-        if (!noradJson.is_array()) {
-            spdlog::error("JSON format is invalid, expected an array of satellite objects.");
-            return;
-        }
-
-        std::vector<SatelliteInfo> satellites;
-
-        for (const auto& item : noradJson) {
-            if (!item.contains("NORAD_ID") || !item.contains("Current_Official_Name") || !item.contains("Source")) {
-                spdlog::error("invalid satellite data format: {}", item.dump());
-                continue;
-            }
-
-            SatelliteInfo info;
-            info.norad_id = item["NORAD_ID"];
-            info.name = item["Current_Official_Name"];
-            info.source = item["Source"].is_null() ? "" : item["Source"];
-            satellites.push_back(info);
-        }
-
-        spdlog::info("{}", satellites.size());
-        spdlog::info("{} {} {}", satellites.at(0).norad_id, satellites.at(0).name, satellites.at(0).source);
-
-        // store satellites in db
-        {
-
-        }
-
-        /*int numToProcess = std::min(m_NumSatellites, static_cast<int>(noradJson.size()));
-
-        for (int i = 0; i < numToProcess; i++) {
-            pool.AddTask([this, id = noradJson[i]]() {
+        spdlog::info("processing {} satellites", numToProcess);
+        /*for (int i = 0; i < numToProcess; i++) {
+            pool.AddTask([this, id = m_NoradIds[i]]() {
                 this->fetchSatelliteTLEData(id);
             });
         }*/
 
         pool.Await();
         pool.Shutdown();
+    }
+
+    bool SatelliteProcessor::fetchNoradIds() {
+        auto& connPool = ConnectionPool::getInstance();
+        ScopedDbConn dbConn(connPool);
+        auto conn = dbConn.get();
+        if (!conn) {
+            spdlog::error("failed to aquire db connection when fetching ids");
+            return false;
+        }
+
+        try {
+            auto res = conn->executeSelectQuery("SELECT satellite_id FROM satellites");
+            for (const auto& row : res) {
+                int id = std::stoi(row.at("satellite_id"));
+                m_NoradIds.push_back(id);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("error fetching ids: {}", e.what());
+            spdlog::debug("make sure 'satellites' table exist and is populated in the db");
+            return false;
+        }
+
+        return true;
     }
 
     void SatelliteProcessor::fetchSatelliteTLEData(int id) {

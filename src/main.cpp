@@ -42,11 +42,6 @@ int main()
 		auto dbConn = connPool.acquire();
 		if (dbConn) {
 			dbConn->getDatabaseVersion();
-            dbConn->executeAdminQuery(
-				"CREATE TABLE IF NOT EXISTS satellites ("
-				"satellite_id INTEGER PRIMARY KEY, "
-				"name TEXT NOT NULL"
-				");");
 			dbConn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data ("
 				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "

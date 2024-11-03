@@ -66,7 +66,13 @@ int main()
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 
-	SOEP::SatelliteProcessor processor(apiKey, 10);
+
+	const char* offsetEnv = std::getenv("OFFSET");
+	const char* numSatellitesEnv = std::getenv("NUM_SATELLITES");
+	int offset = offsetEnv != nullptr ? 0 : std::stoi(offsetEnv);
+	int numSatellites = numSatellitesEnv != nullptr ? 100 : std::stoi(numSatellitesEnv);
+
+	SOEP::SatelliteProcessor processor(apiKey, numSatellites, offset);
 	processor.invoke();
 
 	connPool.shutdown();

@@ -6,8 +6,8 @@
 #include "db_RAII.h"
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)
-        : m_ApiKey(apiKey), m_NumSatellites(numSatellites) {}
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset)
+        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
@@ -15,11 +15,11 @@ namespace SOEP {
         SOEP::ThreadPool pool{ 20 };
 
         if (!fetchNoradIds()) {
-            spdlog::error("process terminated. no API calls or alterations in the db was made");
+            spdlog::debug("process terminated. no API calls or alterations in the db was made");
             return;
         }
 
-        int numToProcess = std::min(m_NumSatellites, static_cast<int>(m_NoradIds.size()));
+        int numToProcess = static_cast<int>(m_NoradIds.size());
 
         spdlog::info("processing {} satellites", numToProcess);
         /*for (int i = 0; i < numToProcess; i++) {
@@ -41,11 +41,18 @@ namespace SOEP {
             return false;
         }
 
+        std::string query = "SELECT satellite_id FROM satellites ORDER BY satellite_id LIMIT " +
+                            std::to_string(m_NumSatellites) + " OFFSET " + std::to_string(m_Offset) + ";";
+
         try {
-            auto res = conn->executeSelectQuery("SELECT satellite_id FROM satellites");
+            auto res = conn->executeSelectQuery(query);
             for (const auto& row : res) {
                 int id = std::stoi(row.at("satellite_id"));
                 m_NoradIds.push_back(id);
+            }
+            if (m_NoradIds.empty()) {
+                spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
+                return false;
             }
         } catch (const std::exception& e) {
             spdlog::error("error fetching ids: {}", e.what());

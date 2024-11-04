@@ -5,6 +5,7 @@
 #include "database/pool/connection_pool.h"
 #include "db_RAII.h"
 
+
 namespace SOEP {
     SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset)
         : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset) {}
@@ -96,18 +97,13 @@ namespace SOEP {
         std::string tle_line1 = tle_data.substr(0, pos);
         std::string tle_line2 = tle_data.substr(pos + 2);
 
-        // sanitize TLE lines
         std::replace(tle_line1.begin(), tle_line1.end(), '\'', '\"');
         std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
 
-        // construct the Python command
         std::ostringstream command;
-
-        // args: tle_line1: str, tle_line2: str, start_time: float, stop_time: float, step_size: float
         command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-                << tle_line1 << "', '" << tle_line2 << "', 0, 10, 1); print(result)\""; // stop_time = 1440
+                << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
 
-        // execute the command and capture output
         FILE* pipe = popen(command.str().c_str(), "r");
         if (!pipe) {
             spdlog::error("Failed to run Python script for satellite {}", id);
@@ -123,11 +119,8 @@ namespace SOEP {
         int returnCode = pclose(pipe);
         if (returnCode != 0) {
             spdlog::error("Error running Python script for satellite {}", id);
-        } /*else {
-            spdlog::info("Satellite {} propagation result: {}", id, result);
-        }*/
+        }
 
-        // parse and store data
         nlohmann::json jsonResult;
         try {
             jsonResult = nlohmann::json::parse(result);
@@ -136,25 +129,43 @@ namespace SOEP {
             return;
         }
 
+        auto currentTime = std::chrono::system_clock::now();
+
+        std::vector<nlohmann::json> recordsWithTimestamps;
+        for (const auto& record : jsonResult) {
+            // Check for required keys in each record
+            if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
+                record.contains("z_km") && record.contains("xdot_km_per_s") &&
+                record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {
+                spdlog::error("Incomplete data for satellite {}: {}", id, record.dump());
+                continue;
+            }
+
+            // Calculate the timestamp based on `tsince_min`
+            auto recordTime = currentTime + std::chrono::minutes(static_cast<int>(record["tsince_min"].get<double>()));
+            std::time_t recordTimeT = std::chrono::system_clock::to_time_t(recordTime);
+            std::tm* gmt = std::gmtime(&recordTimeT);
+
+            std::ostringstream timeStream;
+            timeStream << std::put_time(gmt, "%Y-%m-%d %H:%M");
+
+            nlohmann::json recordWithTimestamp = record;
+            recordWithTimestamp["timestamp"] = timeStream.str();
+            recordsWithTimestamps.push_back(recordWithTimestamp);
+        }
+
         auto& connPool = ConnectionPool::getInstance();
         ScopedDbConn dbConn(connPool);
         auto conn = dbConn.get();
         if (!conn) {
-            spdlog::error("failed to aquire db connection for satellite: {}", id);
+            spdlog::error("Failed to acquire db connection for satellite: {}", id);
             return;
         }
 
         try {
             conn->beginTransaction();
 
-            for (const auto& record : jsonResult) {
-                if (!record.contains("tsince_min") || !record.contains("x_km") || !record.contains("y_km") ||
-                    !record.contains("z_km") || !record.contains("xdot_km_per_s") ||
-                    !record.contains("ydot_km_per_s") || !record.contains("zdot_km_per_s")) {
-                    spdlog::error("wrong data format for satellite {}: {}", id, record.dump());
-                    continue;
-                }
-
+            for (const auto& record : recordsWithTimestamps) {
                 conn->executeUpdateQuery(
                     "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
                     "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
@@ -167,8 +178,7 @@ namespace SOEP {
                     "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
                     "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
                     id,
-                    "2024-01-01 12:00:00", // remove this when we have time formatting :)
-                    //record["tsince_min"].get<double>(),
+                    record["timestamp"].get<std::string>(),
                     record["x_km"].get<double>(),
                     record["y_km"].get<double>(),
                     record["z_km"].get<double>(),
@@ -181,6 +191,8 @@ namespace SOEP {
             conn->commitTransaction();
         } catch (const std::exception& e) {
             conn->rollbackTransaction();
+            spdlog::error("Database transaction failed for satellite {}: {}", id, e.what());
         }
     }
 }
+

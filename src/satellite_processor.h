@@ -5,7 +5,7 @@
 namespace SOEP {
     class SatelliteProcessor {
     public:
-        SatelliteProcessor(const std::string& apiKey, int numSatellites = 3000);
+        SatelliteProcessor(const std::string& apiKey, int numSatellites = 10);
         ~SatelliteProcessor();
 
         void invoke();

@@ -69,8 +69,8 @@ int main()
 
 	const char* offsetEnv = std::getenv("OFFSET");
 	const char* numSatellitesEnv = std::getenv("NUM_SATELLITES");
-	int offset = offsetEnv != nullptr ? 0 : std::stoi(offsetEnv);
-	int numSatellites = numSatellitesEnv != nullptr ? 100 : std::stoi(numSatellitesEnv);
+	int offset = offsetEnv != nullptr ? std::stoi(offsetEnv) : 0;
+	int numSatellites = numSatellitesEnv != nullptr ? std::stoi(numSatellitesEnv) : 100;
 
 	SOEP::SatelliteProcessor processor(apiKey, numSatellites, offset);
 	processor.invoke();

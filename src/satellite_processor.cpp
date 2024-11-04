@@ -22,11 +22,11 @@ namespace SOEP {
         int numToProcess = static_cast<int>(m_NoradIds.size());
 
         spdlog::info("processing {} satellites", numToProcess);
-        /*for (int i = 0; i < numToProcess; i++) {
+        for (int i = 0; i < numToProcess; i++) {
             pool.AddTask([this, id = m_NoradIds[i]]() {
                 this->fetchSatelliteTLEData(id);
             });
-        }*/
+        }
 
         pool.Await();
         pool.Shutdown();
@@ -156,11 +156,19 @@ namespace SOEP {
                 }
 
                 conn->executeUpdateQuery(
-                    "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, "
+                    "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
                     "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8);",
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
+                    "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
+                    "x_km = EXCLUDED.x_km, "
+                    "y_km = EXCLUDED.y_km, "
+                    "z_km = EXCLUDED.z_km, "
+                    "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
+                    "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
+                    "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
                     id,
-                    record["tsince_min"].get<double>(),
+                    "2024-01-01 12:00:00", // remove this when we have time formatting :)
+                    //record["tsince_min"].get<double>(),
                     record["x_km"].get<double>(),
                     record["y_km"].get<double>(),
                     record["z_km"].get<double>(),

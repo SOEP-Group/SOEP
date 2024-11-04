@@ -45,7 +45,7 @@ int main()
 			dbConn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data ("
 				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
-				"timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL, "
+				"timestamp TIMESTAMPTZ NOT NULL, " // Changed to TIMESTAMPTZ
 				"x_km DOUBLE PRECISION NOT NULL, "
 				"y_km DOUBLE PRECISION NOT NULL, "
 				"z_km DOUBLE PRECISION NOT NULL, "
@@ -70,7 +70,7 @@ int main()
 	const char* offsetEnv = std::getenv("OFFSET");
 	const char* numSatellitesEnv = std::getenv("NUM_SATELLITES");
 	int offset = offsetEnv != nullptr ? std::stoi(offsetEnv) : 0;
-	int numSatellites = numSatellitesEnv != nullptr ? std::stoi(numSatellitesEnv) : 100;
+	int numSatellites = numSatellitesEnv != nullptr ? std::stoi(numSatellitesEnv) : 10;
 
 	SOEP::SatelliteProcessor processor(apiKey, numSatellites, offset);
 	processor.invoke();

@@ -42,20 +42,21 @@ int main()
 		auto dbConn = connPool.acquire();
 		if (dbConn) {
 			dbConn->getDatabaseVersion();
-			// assuming our db schema will look something like this
 			dbConn->executeAdminQuery(
-				"CREATE TABLE IF NOT EXISTS satellite_data("
-				"id SERIAL PRIMARY KEY, "
-				"satellite_id INT NOT NULL, "
-				"tsince_min DOUBLE PRECISION, "
-				"x_km DOUBLE PRECISION, "
-				"y_km DOUBLE PRECISION, "
-				"z_km DOUBLE PRECISION, "
-				"xdot_km_per_s DOUBLE PRECISION, "
-				"ydot_km_per_s DOUBLE PRECISION, "
-				"zdot_km_per_s DOUBLE PRECISION"
-				");"
-			);
+				"CREATE TABLE IF NOT EXISTS satellite_data ("
+				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
+				"timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL, "
+				"x_km DOUBLE PRECISION NOT NULL, "
+				"y_km DOUBLE PRECISION NOT NULL, "
+				"z_km DOUBLE PRECISION NOT NULL, "
+				"xdot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"ydot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"zdot_km_per_s DOUBLE PRECISION NOT NULL, "
+				"PRIMARY KEY (satellite_id, timestamp)"
+				");");
+			dbConn->executeAdminQuery(
+				"SELECT create_hypertable('satellite_data', 'timestamp', if_not_exists => TRUE);");
+
 			connPool.release(dbConn);
 		}
 	}
@@ -65,7 +66,13 @@ int main()
 	SOEP_ASSERT(apiKeyEnv != nullptr, "Error: N2YO_API_KEY environment variable is not set.");
 	std::string apiKey(apiKeyEnv);
 
-	SOEP::SatelliteProcessor processor(apiKey, 10);
+
+	const char* offsetEnv = std::getenv("OFFSET");
+	const char* numSatellitesEnv = std::getenv("NUM_SATELLITES");
+	int offset = offsetEnv != nullptr ? std::stoi(offsetEnv) : 0;
+	int numSatellites = numSatellitesEnv != nullptr ? std::stoi(numSatellitesEnv) : 100;
+
+	SOEP::SatelliteProcessor processor(apiKey, numSatellites, offset);
 	processor.invoke();
 
 	connPool.shutdown();

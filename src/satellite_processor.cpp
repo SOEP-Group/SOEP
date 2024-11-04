@@ -6,45 +6,61 @@
 #include "db_RAII.h"
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites)
-        : m_ApiKey(apiKey), m_NumSatellites(numSatellites) {}
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset)
+        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
     void SatelliteProcessor::invoke() {
         SOEP::ThreadPool pool{ 20 };
 
-        std::string jsonFilePath = "./resources/norad_ids.json"; 
-        
-        std::ifstream jsonFile(jsonFilePath);
-        if (!jsonFile.is_open()) {
-            spdlog::error("Failed to open NORAD IDs JSON file: {}", jsonFilePath);
+        if (!fetchNoradIds()) {
+            spdlog::debug("process terminated. no API calls or alterations in the db was made");
             return;
         }
 
-        nlohmann::json noradJson;
-        try {
-            jsonFile >> noradJson;
-        } catch (const std::exception& e) {
-            spdlog::error("Error parsing JSON file: {}", e.what());
-            return;
-        }
+        int numToProcess = static_cast<int>(m_NoradIds.size());
 
-        if (!noradJson.is_array()) {
-            spdlog::error("JSON format is invalid, expected an array of NORAD IDs.");
-            return;
-        }
-
-        int numToProcess = std::min(m_NumSatellites, static_cast<int>(noradJson.size()));
-
+        spdlog::info("processing {} satellites", numToProcess);
         for (int i = 0; i < numToProcess; i++) {
-            pool.AddTask([this, id = noradJson[i]]() {
+            pool.AddTask([this, id = m_NoradIds[i]]() {
                 this->fetchSatelliteTLEData(id);
             });
         }
 
         pool.Await();
         pool.Shutdown();
+    }
+
+    bool SatelliteProcessor::fetchNoradIds() {
+        auto& connPool = ConnectionPool::getInstance();
+        ScopedDbConn dbConn(connPool);
+        auto conn = dbConn.get();
+        if (!conn) {
+            spdlog::error("failed to aquire db connection when fetching ids");
+            return false;
+        }
+
+        std::string query = "SELECT satellite_id FROM satellites ORDER BY satellite_id LIMIT " +
+                            std::to_string(m_NumSatellites) + " OFFSET " + std::to_string(m_Offset) + ";";
+
+        try {
+            auto res = conn->executeSelectQuery(query);
+            for (const auto& row : res) {
+                int id = std::stoi(row.at("satellite_id"));
+                m_NoradIds.push_back(id);
+            }
+            if (m_NoradIds.empty()) {
+                spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
+                return false;
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("error fetching ids: {}", e.what());
+            spdlog::debug("make sure 'satellites' table exist and is populated in the db");
+            return false;
+        }
+
+        return true;
     }
 
     void SatelliteProcessor::fetchSatelliteTLEData(int id) {
@@ -140,11 +156,19 @@ namespace SOEP {
                 }
 
                 conn->executeUpdateQuery(
-                    "INSERT INTO satellite_data (satellite_id, tsince_min, x_km, y_km, z_km, "
+                    "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
                     "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8);",
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
+                    "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
+                    "x_km = EXCLUDED.x_km, "
+                    "y_km = EXCLUDED.y_km, "
+                    "z_km = EXCLUDED.z_km, "
+                    "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
+                    "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
+                    "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
                     id,
-                    record["tsince_min"].get<double>(),
+                    "2024-01-01 12:00:00", // remove this when we have time formatting :)
+                    //record["tsince_min"].get<double>(),
                     record["x_km"].get<double>(),
                     record["y_km"].get<double>(),
                     record["z_km"].get<double>(),

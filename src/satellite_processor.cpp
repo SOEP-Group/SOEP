@@ -87,114 +87,112 @@ namespace SOEP {
     }
 
 
-void SatelliteProcessor::processSatelliteTLEData(int id, std::string& tle_data) {
-    size_t pos = tle_data.find("\r\n");
-    if (pos == std::string::npos) {
-        spdlog::error("Invalid TLE data format for satellite: {}", id);
-        return;
-    }
-
-    std::string tle_line1 = tle_data.substr(0, pos);
-    std::string tle_line2 = tle_data.substr(pos + 2);
-
-    std::replace(tle_line1.begin(), tle_line1.end(), '\'', '\"');
-    std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
-
-    std::ostringstream command;
-    command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-            << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
-
-    FILE* pipe = popen(command.str().c_str(), "r");
-    if (!pipe) {
-        spdlog::error("Failed to run Python script for satellite {}", id);
-        return;
-    }
-
-    char buffer[128];
-    std::string result = "";
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-
-    int returnCode = pclose(pipe);
-    if (returnCode != 0) {
-        spdlog::error("Error running Python script for satellite {}", id);
-    }
-
-    nlohmann::json jsonResult;
-    try {
-        jsonResult = nlohmann::json::parse(result);
-    } catch (const std::exception& e) {
-        spdlog::error("Error parsing JSON result for satellite {}: {}", id, e.what());
-        return;
-    }
-
-    auto currentTime = std::chrono::system_clock::now();
-
-    std::vector<nlohmann::json> recordsWithTimestamps;
-    for (const auto& record : jsonResult) {
-        // Check for required keys in each record
-        if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
-              record.contains("z_km") && record.contains("xdot_km_per_s") &&
-              record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {
-            spdlog::error("Incomplete data for satellite {}: {}", id, record.dump());
-            continue;
+    void SatelliteProcessor::processSatelliteTLEData(int id, std::string& tle_data) {
+        size_t pos = tle_data.find("\r\n");
+        if (pos == std::string::npos) {
+            spdlog::error("Invalid TLE data format for satellite: {}", id);
+            return;
         }
 
-        // Calculate the timestamp based on `tsince_min`
-        auto recordTime = currentTime + std::chrono::minutes(static_cast<int>(record["tsince_min"].get<double>()));
-        std::time_t recordTimeT = std::chrono::system_clock::to_time_t(recordTime);
-        std::tm* gmt = std::gmtime(&recordTimeT);
+        std::string tle_line1 = tle_data.substr(0, pos);
+        std::string tle_line2 = tle_data.substr(pos + 2);
 
-        std::ostringstream timeStream;
-        timeStream << std::put_time(gmt, "%Y-%m-%d %H:%M");
+        std::replace(tle_line1.begin(), tle_line1.end(), '\'', '\"');
+        std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
 
-        nlohmann::json recordWithTimestamp = record;
-        recordWithTimestamp["timestamp"] = timeStream.str();
-        recordsWithTimestamps.push_back(recordWithTimestamp);
-    }
+        std::ostringstream command;
+        command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
+                << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
 
-    auto& connPool = ConnectionPool::getInstance();
-    ScopedDbConn dbConn(connPool);
-    auto conn = dbConn.get();
-    if (!conn) {
-        spdlog::error("Failed to acquire db connection for satellite: {}", id);
-        return;
-    }
-
-    try {
-        conn->beginTransaction();
-
-        for (const auto& record : recordsWithTimestamps) {
-            conn->executeUpdateQuery(
-                "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
-                "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
-                "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
-                "x_km = EXCLUDED.x_km, "
-                "y_km = EXCLUDED.y_km, "
-                "z_km = EXCLUDED.z_km, "
-                "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
-                "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
-                "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
-                id,
-                record["timestamp"].get<std::string>(),
-                record["x_km"].get<double>(),
-                record["y_km"].get<double>(),
-                record["z_km"].get<double>(),
-                record["xdot_km_per_s"].get<double>(),
-                record["ydot_km_per_s"].get<double>(),
-                record["zdot_km_per_s"].get<double>()
-            );
+        FILE* pipe = popen(command.str().c_str(), "r");
+        if (!pipe) {
+            spdlog::error("Failed to run Python script for satellite {}", id);
+            return;
         }
 
-        conn->commitTransaction();
-    } catch (const std::exception& e) {
-        conn->rollbackTransaction();
-        spdlog::error("Database transaction failed for satellite {}: {}", id, e.what());
+        char buffer[128];
+        std::string result = "";
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            result += buffer;
+        }
+
+        int returnCode = pclose(pipe);
+        if (returnCode != 0) {
+            spdlog::error("Error running Python script for satellite {}", id);
+        }
+
+        nlohmann::json jsonResult;
+        try {
+            jsonResult = nlohmann::json::parse(result);
+        } catch (const std::exception& e) {
+            spdlog::error("Error parsing JSON result for satellite {}: {}", id, e.what());
+            return;
+        }
+
+        auto currentTime = std::chrono::system_clock::now();
+
+        std::vector<nlohmann::json> recordsWithTimestamps;
+        for (const auto& record : jsonResult) {
+            // Check for required keys in each record
+            if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
+                record.contains("z_km") && record.contains("xdot_km_per_s") &&
+                record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {
+                spdlog::error("Incomplete data for satellite {}: {}", id, record.dump());
+                continue;
+            }
+
+            // Calculate the timestamp based on `tsince_min`
+            auto recordTime = currentTime + std::chrono::minutes(static_cast<int>(record["tsince_min"].get<double>()));
+            std::time_t recordTimeT = std::chrono::system_clock::to_time_t(recordTime);
+            std::tm* gmt = std::gmtime(&recordTimeT);
+
+            std::ostringstream timeStream;
+            timeStream << std::put_time(gmt, "%Y-%m-%d %H:%M");
+
+            nlohmann::json recordWithTimestamp = record;
+            recordWithTimestamp["timestamp"] = timeStream.str();
+            recordsWithTimestamps.push_back(recordWithTimestamp);
+        }
+
+        auto& connPool = ConnectionPool::getInstance();
+        ScopedDbConn dbConn(connPool);
+        auto conn = dbConn.get();
+        if (!conn) {
+            spdlog::error("Failed to acquire db connection for satellite: {}", id);
+            return;
+        }
+
+        try {
+            conn->beginTransaction();
+
+            for (const auto& record : recordsWithTimestamps) {
+                conn->executeUpdateQuery(
+                    "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
+                    "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
+                    "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
+                    "x_km = EXCLUDED.x_km, "
+                    "y_km = EXCLUDED.y_km, "
+                    "z_km = EXCLUDED.z_km, "
+                    "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
+                    "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
+                    "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
+                    id,
+                    record["timestamp"].get<std::string>(),
+                    record["x_km"].get<double>(),
+                    record["y_km"].get<double>(),
+                    record["z_km"].get<double>(),
+                    record["xdot_km_per_s"].get<double>(),
+                    record["ydot_km_per_s"].get<double>(),
+                    record["zdot_km_per_s"].get<double>()
+                );
+            }
+
+            conn->commitTransaction();
+        } catch (const std::exception& e) {
+            conn->rollbackTransaction();
+            spdlog::error("Database transaction failed for satellite {}: {}", id, e.what());
+        }
     }
-}
-
-
 }
 

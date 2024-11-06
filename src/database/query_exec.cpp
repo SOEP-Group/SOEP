@@ -17,28 +17,27 @@ namespace SOEP {
 				txn.commit();
 				spdlog::info("executed SELECT query: {}", query);
 			}
-
-			for (const auto& row : res) {
-				std::map<std::string, std::string> resultRow;
-				for (const auto& field : row) {
-					resultRow[field.name()] = field.c_str();
-				}
-				response.payload.push_back(resultRow);
-			}
-			response.success = true;
 		}
 		catch (const pqxx::broken_connection& e) {
 			response.success = false;
 			response.errorMsg = e.what();
+			return response;
 		}
 		catch (const pqxx::sql_error& e) {
 			response.success = false;
 			response.errorMsg = e.what();
+			return response;
 		}
-		catch (const std::exception& e) {
-			response.success = false;
-			response.errorMsg = e.what();
+		
+		// unlikely to fail, logically, should only fail if severe system issues such we get exception of 'bad_alloc'
+		for (const auto& row : res) {
+			std::map<std::string, std::string> resultRow;
+			for (const auto& field : row) {
+				resultRow[field.name()] = field.c_str();
+			}
+			response.payload.push_back(resultRow);
 		}
+		response.success = true;
 
 		return response;
 	}
@@ -72,10 +71,6 @@ namespace SOEP {
 			response.success = false;
 			response.errorMsg = e.what();
 		}
-		catch (const std::exception& e) {
-			response.success = false;
-			response.errorMsg = e.what();
-		}
 
 		return response;
 	}
@@ -105,10 +100,6 @@ namespace SOEP {
 			response.errorMsg = e.what();
 		}
 		catch (const pqxx::sql_error& e) {
-			response.success = false;
-			response.errorMsg = e.what();
-		}
-		catch (const std::exception& e) {
 			response.success = false;
 			response.errorMsg = e.what();
 		}

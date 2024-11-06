@@ -36,9 +36,9 @@ namespace SOEP {
 		void testQuery();
 		void test2Query(const std::string&, const int&);
 
-		void beginTransaction();
-		void commitTransaction();
-		void rollbackTransaction();
+		DbResponse<void> beginTransaction();
+		DbResponse<void> commitTransaction();
+		DbResponse<void> rollbackTransaction();
 
 		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query); // SELECT
 
@@ -49,6 +49,7 @@ namespace SOEP {
 		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
+			DbResponse<std::vector<std::map<std::string, std::string>>> response;
 			pqxx::result res;
 			try {
 				if (currentTransaction) {
@@ -62,20 +63,27 @@ namespace SOEP {
 					spdlog::info("executed SELECT query {}", query);
 				}
 			}
+			catch (const pqxx::broken_connection& e) {
+				response.success = false;
+				response.errorMsg = e.what();
+				return response;
+			}
 			catch (const pqxx::sql_error& e) {
-				spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-				throw;
+				response.success = false;
+				response.errorMsg = e.what();
+				return response;
 			}
 
-			std::vector<std::map<std::string, std::string>> results;
 			for (const auto& row : res) {
 				std::map<std::string, std::string> resultRow;
 				for (const auto& field : row) {
 					resultRow[field.name()] = field.c_str();
 				}
-				results.push_back(resultRow);
+				response.payload.push_back(resultRow);
 			}
-			return results;
+			response.success = true;
+
+			return response;
 		}
 
 		DbResponse<int> executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
@@ -87,6 +95,7 @@ namespace SOEP {
 		DbResponse<int> executeUpdateQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
+			DbResponse<int> response;
 			pqxx::result res;
 			try {
 				if (currentTransaction) {
@@ -96,17 +105,22 @@ namespace SOEP {
 				else {
 					pqxx::work txn(*conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
-					int affectedRows = res.affected_rows();
 					txn.commit();
 					spdlog::info("executed UPDATE query: {}", query);
-					return affectedRows;
 				}
+				response.payload = res.affected_rows();
+				response.success = true;
+			}
+			catch (const pqxx::broken_connection& e) {
+				response.success = false;
+				response.errorMsg = e.what();
 			}
 			catch (const pqxx::sql_error& e) {
-				spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-				throw;
+				response.success = false;
+				response.errorMsg = e.what();
 			}
-			return res.affected_rows();
+
+			return response;
 		}
 
 		// should never take user input

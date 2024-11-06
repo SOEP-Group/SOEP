@@ -36,8 +36,12 @@ namespace SOEP {
 	}
 
 	void DatabaseConnection::getDatabaseVersion() {
-		auto result = executeSelectQuery("SELECT version()");
-		for (const auto& row : result) {
+		auto res = executeSelectQuery("SELECT version()");
+		if (!res.success) {
+			spdlog::error("{}", res.errorMsg);
+			return;
+		}
+		for (const auto& row : res.payload) {
 			spdlog::info("{}", row.at("version"));
 		}
 	}

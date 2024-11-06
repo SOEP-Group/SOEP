@@ -9,6 +9,13 @@
 #include "core/assert.h"
 
 namespace SOEP {
+	template<typename T>
+	struct DbResponse {
+		bool success;
+		T payload;
+		std::string errorMsg;
+	};
+
 	class DatabaseConnection {
 	public:
 		explicit DatabaseConnection(const std::string& connStr);
@@ -33,20 +40,13 @@ namespace SOEP {
 		void commitTransaction();
 		void rollbackTransaction();
 
-		struct QueryResponse {
-			bool success;
-			std::string errorMsg;
-			std::vector<std::map<std::string, std::string>> data;
-			int affectedRows = 0;
-		};
-
-		QueryResponse executeSelectQuery(const std::string& query); // SELECT
+		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query); // SELECT
 
 		/*
 			use this if subject to user input
 		*/
 		template<typename... Params>
-		QueryResponse executeSelectQuery(const std::string& query, Params&&... params) {
+		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 			pqxx::result res;
@@ -78,13 +78,13 @@ namespace SOEP {
 			return results;
 		}
 
-		QueryResponse executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
+		DbResponse<int> executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
 
 		/*
 			use this if subject to user input
 		*/
 		template<typename... Params>
-		QueryResponse executeUpdateQuery(const std::string& query, Params&&... params) {
+		DbResponse<int> executeUpdateQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 			pqxx::result res;
@@ -110,7 +110,7 @@ namespace SOEP {
 		}
 
 		// should never take user input
-		QueryResponse executeAdminQuery(const std::string& query); // CREATE, ALTER
+		DbResponse<void> executeAdminQuery(const std::string& query); // CREATE, ALTER
 
 		void close();
 

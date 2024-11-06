@@ -1,9 +1,10 @@
 #include "database_connection.h"
 
 namespace SOEP {
-	DatabaseConnection::QueryResponse DatabaseConnection::executeSelectQuery(const std::string& query) {
+	DbResponse<std::vector<std::map<std::string, std::string>>> DatabaseConnection::executeSelectQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
+		DbResponse<std::vector<std::map<std::string, std::string>>> response;
 		pqxx::result res;
 		try {
 			if (currentTransaction) {
@@ -17,27 +18,36 @@ namespace SOEP {
 				spdlog::info("executed SELECT query: {}", query);
 			}
 
+			for (const auto& row : res) {
+				std::map<std::string, std::string> resultRow;
+				for (const auto& field : row) {
+					resultRow[field.name()] = field.c_str();
+				}
+				response.payload.push_back(resultRow);
+			}
+			response.success = true;
+		}
+		catch (const pqxx::broken_connection& e) {
+			response.success = false;
+			response.errorMsg = e.what();
 		}
 		catch (const pqxx::sql_error& e) {
-			spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-			throw;
+			response.success = false;
+			response.errorMsg = e.what();
+		}
+		catch (const std::exception& e) {
+			response.success = false;
+			response.errorMsg = e.what();
 		}
 
-		std::vector<std::map<std::string, std::string>> results;
-		for (const auto& row : res) {
-			std::map<std::string, std::string> resultRow;
-			for (const auto& field : row) {
-				resultRow[field.name()] = field.c_str();
-			}
-			results.push_back(resultRow);
-		}
-		return results;
+		return response;
 	}
 
 
-	DatabaseConnection::QueryResponse DatabaseConnection::executeUpdateQuery(const std::string& query) {
+	DbResponse<int> DatabaseConnection::executeUpdateQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
+		DbResponse<int> response;
 		pqxx::result res;
 		try {
 			if (currentTransaction) {
@@ -50,23 +60,33 @@ namespace SOEP {
 				int affectedRows = res.affected_rows();
 				txn.commit();
 				spdlog::info("executed UPDATE query: {}", query);
-				return affectedRows;
 			}
+			response.payload = res.affected_rows();
+			response.success = true;
+		}
+		catch (const pqxx::broken_connection& e) {
+			response.success = false;
+			response.errorMsg = e.what();
 		}
 		catch (const pqxx::sql_error& e) {
-			spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-			throw;
+			response.success = false;
+			response.errorMsg = e.what();
+		}
+		catch (const std::exception& e) {
+			response.success = false;
+			response.errorMsg = e.what();
 		}
 
-		return res.affected_rows();
+		return response;
 	}
 
 	/*
 		IMPORTANT: dont execute inside threads
 	*/
-	DatabaseConnection::QueryResponse DatabaseConnection::executeAdminQuery(const std::string& query) {
+	DbResponse<void> DatabaseConnection::executeAdminQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
+		DbResponse<void> response;
 		try {
 			if (currentTransaction) {
 				currentTransaction->exec(query);
@@ -78,11 +98,22 @@ namespace SOEP {
 				txn.commit();
 				spdlog::info("executed ADMIN query: {}", query);
 			}
+			response.success = true;
+		}
+		catch (const pqxx::broken_connection& e) {
+			response.success = false;
+			response.errorMsg = e.what();
 		}
 		catch (const pqxx::sql_error& e) {
-			spdlog::error("SQL error: {}\nquery: {}", e.what(), e.query());
-			throw;
+			response.success = false;
+			response.errorMsg = e.what();
 		}
+		catch (const std::exception& e) {
+			response.success = false;
+			response.errorMsg = e.what();
+		}
+
+		return response;
 	}
 
 	/*

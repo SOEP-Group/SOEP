@@ -7,8 +7,10 @@
 
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset)
-        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset) {}
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset,
+                                           double start_time, double stop_time, double step_size)
+        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset),
+          m_StartTime(start_time), m_StopTime(stop_time), m_StepSize(step_size) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
@@ -101,8 +103,10 @@ namespace SOEP {
         std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
 
         std::ostringstream command;
+        // args: tle_line1: str, tle_line2: str, start_time: float, stop_time: float, step_size: float
         command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-                << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
+                << tle_line1 << "', '" << tle_line2 << "', " << m_StartTime << ", " << m_StopTime
+                << ", " << m_StepSize << "); print(result)\"";
 
         FILE* pipe = popen(command.str().c_str(), "r");
         if (!pipe) {

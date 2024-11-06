@@ -33,14 +33,20 @@ namespace SOEP {
 		void commitTransaction();
 		void rollbackTransaction();
 
-		std::vector<std::map<std::string, std::string>> executeSelectQuery(const std::string& query); // SELECT
+		struct QueryResponse {
+			bool success;
+			std::string errorMsg;
+			std::vector<std::map<std::string, std::string>> data;
+			int affectedRows = 0;
+		};
+
+		QueryResponse executeSelectQuery(const std::string& query); // SELECT
 
 		/*
 			use this if subject to user input
 		*/
 		template<typename... Params>
-		std::vector<std::map<std::string, std::string>> executeSelectQuery(
-			const std::string& query, Params&&... params) {
+		QueryResponse executeSelectQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 			pqxx::result res;
@@ -72,13 +78,13 @@ namespace SOEP {
 			return results;
 		}
 
-		int executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
+		QueryResponse executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
 
 		/*
 			use this if subject to user input
 		*/
 		template<typename... Params>
-		int executeUpdateQuery(const std::string& query, Params&&... params) {
+		QueryResponse executeUpdateQuery(const std::string& query, Params&&... params) {
 			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 			pqxx::result res;
@@ -104,7 +110,7 @@ namespace SOEP {
 		}
 
 		// should never take user input
-		void executeAdminQuery(const std::string& query); // CREATE, ALTER
+		QueryResponse executeAdminQuery(const std::string& query); // CREATE, ALTER
 
 		void close();
 

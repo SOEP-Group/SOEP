@@ -45,7 +45,7 @@ int main()
 			dbConn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data ("
 				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
-				"timestamp TIMESTAMPTZ NOT NULL, " // Changed to TIMESTAMPTZ
+				"timestamp TIMESTAMPTZ NOT NULL, "
 				"x_km DOUBLE PRECISION NOT NULL, "
 				"y_km DOUBLE PRECISION NOT NULL, "
 				"z_km DOUBLE PRECISION NOT NULL, "

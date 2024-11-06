@@ -1,7 +1,7 @@
 #include "database_connection.h"
 
 namespace SOEP {
-	std::vector<std::map<std::string, std::string>> DatabaseConnection::executeSelectQuery(const std::string& query) {
+	DatabaseConnection::QueryResponse DatabaseConnection::executeSelectQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 		pqxx::result res;
@@ -35,7 +35,7 @@ namespace SOEP {
 	}
 
 
-	int DatabaseConnection::executeUpdateQuery(const std::string& query) {
+	DatabaseConnection::QueryResponse DatabaseConnection::executeUpdateQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 		pqxx::result res;
@@ -64,7 +64,7 @@ namespace SOEP {
 	/*
 		IMPORTANT: dont execute inside threads
 	*/
-	void DatabaseConnection::executeAdminQuery(const std::string& query) {
+	DatabaseConnection::QueryResponse DatabaseConnection::executeAdminQuery(const std::string& query) {
 		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
 
 		try {
@@ -85,6 +85,7 @@ namespace SOEP {
 		}
 	}
 
+	/*
 	// test
 	void DatabaseConnection::testQuery() {
 		try {
@@ -141,5 +142,5 @@ namespace SOEP {
 			spdlog::error("error: {}", e.what());
 		}
 	}
-
+	*/
 }

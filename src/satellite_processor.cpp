@@ -45,19 +45,21 @@ namespace SOEP {
         std::string query = "SELECT satellite_id FROM satellites ORDER BY satellite_id LIMIT " +
                             std::to_string(m_NumSatellites) + " OFFSET " + std::to_string(m_Offset) + ";";
 
+        std::vector<std::map<std::string, std::string>> res;
         try {
-            auto res = conn->executeSelectQuery(query);
-            for (const auto& row : res) {
-                int id = std::stoi(row.at("satellite_id"));
-                m_NoradIds.push_back(id);
-            }
-            if (m_NoradIds.empty()) {
-                spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
-                return false;
-            }
+            res = conn->executeSelectQuery(query);
         } catch (const std::exception& e) {
             spdlog::error("error fetching ids: {}", e.what());
             spdlog::debug("make sure 'satellites' table exist and is populated in the db");
+            return false;
+        }
+        
+        for (const auto& row : res) {
+            int id = std::stoi(row.at("satellite_id"));
+            m_NoradIds.push_back(id);
+        }
+        if (m_NoradIds.empty()) {
+            spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
             return false;
         }
 
@@ -101,6 +103,7 @@ namespace SOEP {
         std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
 
         std::ostringstream command;
+        // args: tle_line1: str, tle_line2: str, start_time: float, stop_time: float, step_size: float
         command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
                 << tle_line1 << "', '" << tle_line2 << "', 0, 1440, 1); print(result)\"";
 
@@ -133,7 +136,6 @@ namespace SOEP {
 
         std::vector<nlohmann::json> recordsWithTimestamps;
         for (const auto& record : jsonResult) {
-            // Check for required keys in each record
             if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
                 record.contains("z_km") && record.contains("xdot_km_per_s") &&
                 record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {

@@ -16,6 +16,12 @@ namespace SOEP {
 		std::string errorMsg;
 	};
 
+	template<>
+	struct DbResponse<void> {
+		bool success;
+		std::string errorMsg;
+	};
+
 	class DatabaseConnection {
 	public:
 		explicit DatabaseConnection(const std::string& connStr);
@@ -32,9 +38,6 @@ namespace SOEP {
 		bool isOpen() const;
 
 		void getDatabaseVersion();
-
-		void testQuery();
-		void test2Query(const std::string&, const int&);
 
 		DbResponse<void> beginTransaction();
 		DbResponse<void> commitTransaction();

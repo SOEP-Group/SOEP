@@ -22,11 +22,13 @@ RUN if [ ! -f ".env" ]; then \
     echo -e "\033[0;31mERROR: No .env file detected, the program might crash. Ask Shakir for it.\033[0m"; \
     fi
 
+# maybe switch to 'DCMAKE_BUILD_TYPE=Release' for best performance
 RUN rm -rf build && mkdir build && cd build \
-    && cmake .. -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build . --config Release \
-    && strip SOEP \
-    && ctest --verbose
+    && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    && cmake --build . --config RelWithDebInfo -- -j$(nproc) \
+    && strip SOEP
+
+RUN cd build && ctest --verbose
 
 FROM ubuntu:22.04 AS runtime
 

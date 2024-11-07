@@ -3,11 +3,11 @@
 namespace SOEP {
 	DbResponse<void> DatabaseConnection::beginTransaction() {
 		SOEP_ASSERT(isOpen(), "connection is not open");
-		SOEP_ASSERT(!currentTransaction, "transaction already in progress");
+		SOEP_ASSERT(!m_CurrentTransaction, "transaction already in progress");
 
 		DbResponse<void> response;
 		try {
-			currentTransaction = std::make_unique<pqxx::work>(*conn);
+			m_CurrentTransaction = std::make_unique<pqxx::work>(*m_Conn);
 			spdlog::info("transaction started");
 			response.success = true;
 		}
@@ -24,12 +24,12 @@ namespace SOEP {
 	}
 
 	DbResponse<void> DatabaseConnection::commitTransaction() {
-		SOEP_ASSERT(currentTransaction, "no transaction in progress");
+		SOEP_ASSERT(m_CurrentTransaction, "no transaction in progress");
 
 		DbResponse<void> response;
 		try {
-			currentTransaction->commit();
-			currentTransaction.reset();
+			m_CurrentTransaction->commit();
+			m_CurrentTransaction.reset();
 			spdlog::info("transaction committed");
 			response.success = true;
 		}
@@ -50,12 +50,12 @@ namespace SOEP {
 	}
 
 	DbResponse<void> DatabaseConnection::rollbackTransaction() {
-		SOEP_ASSERT(currentTransaction, "no transaction in progress");
+		SOEP_ASSERT(m_CurrentTransaction, "no transaction in progress");
 
 		DbResponse<void> response;
 		try {
-			currentTransaction->abort();
-			currentTransaction.reset();
+			m_CurrentTransaction->abort();
+			m_CurrentTransaction.reset();
 			spdlog::info("transaction rolled back");
 			response.success = true;
 		}

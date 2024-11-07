@@ -7,9 +7,9 @@
 
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset,
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int num_satellites, int offset,
                                            double start_time, double stop_time, double step_size)
-        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset),
+        : m_ApiKey(apiKey), m_NumSatellites(num_satellites), m_Offset(offset),
           m_StartTime(start_time), m_StopTime(stop_time), m_StepSize(step_size) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}

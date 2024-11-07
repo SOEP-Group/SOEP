@@ -7,56 +7,56 @@ namespace SOEP {
 	}
 
 	void ConnectionPool::initialize(const std::string& connStr, size_t poolSize) {
-		std::lock_guard<std::mutex> lock(poolMutex);
+		std::lock_guard<std::mutex> lock(m_PoolMutex);
 		SOEP_ASSERT(!isInitialized, "connection pool is already initialized");
 
-		connString = connStr;
-		maxPoolSize = poolSize;
+		m_ConnString = connStr;
+		m_MaxPoolSize = poolSize;
 
-		for (size_t i = 0; i < maxPoolSize; ++i) {
-			auto conn = std::make_shared<DatabaseConnection>(connString);
-			pool.push(conn);
+		for (size_t i = 0; i < m_MaxPoolSize; ++i) {
+			auto conn = std::make_shared<DatabaseConnection>(m_ConnString);
+			m_Pool.push(conn);
 		}
-		isInitialized = true;
+		m_IsInitialized = true;
 	}
 
 	void ConnectionPool::shutdown() {
-		std::lock_guard<std::mutex> lock(poolMutex);
-		isShuttingDown = true;
-		while (!pool.empty()) {
-			auto conn = pool.front();
-			pool.pop();
+		std::lock_guard<std::mutex> lock(m_PoolMutex);
+		m_IsShuttingDown = true;
+		while (!m_Pool.empty()) {
+			auto conn = m_Pool.front();
+			m_Pool.pop();
 			conn->close();
 		}
-		isInitialized = false;
-		isShuttingDown = false;
+		m_IsInitialized = false;
+		m_IsShuttingDown = false;
 	}
 
 	std::shared_ptr<DatabaseConnection> ConnectionPool::acquire(int timeoutMs) {
-		std::unique_lock<std::mutex> lock(poolMutex);
+		std::unique_lock<std::mutex> lock(m_PoolMutex);
 		SOEP_ASSERT(isInitialized, "connection pool is not initialized");
 
-		bool acquired = poolCondition.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return !pool.empty() || isShuttingDown; });
+		bool acquired = m_PoolCondition.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return !m_Pool.empty() || m_IsShuttingDown; });
 
 		if (!acquired) {
 			spdlog::warn("timeout: failed to acquire db connection");
 			return nullptr;
 		}
 
-		if (isShuttingDown) {
+		if (m_IsShuttingDown) {
 			return nullptr;
 		}
 
-		auto conn = pool.front();
-		pool.pop();
+		auto conn = m_Pool.front();
+		m_Pool.pop();
 		return conn;
 	}
 
 	void ConnectionPool::release(std::shared_ptr<DatabaseConnection> conn) {
-		std::lock_guard<std::mutex> lock(poolMutex);
+		std::lock_guard<std::mutex> lock(m_PoolMutex);
 		if (conn && conn->isOpen()) {
-			pool.push(conn);
-			poolCondition.notify_one();
+			m_Pool.push(conn);
+			m_PoolCondition.notify_one();
 		}
 		else {
 			spdlog::warn("attempted to release a null or closed connection back to the pool");

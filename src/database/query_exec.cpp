@@ -2,17 +2,17 @@
 
 namespace SOEP {
 	DbResponse<std::vector<std::map<std::string, std::string>>> DatabaseConnection::executeSelectQuery(const std::string& query) {
-		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+		SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 		DbResponse<std::vector<std::map<std::string, std::string>>> response;
 		pqxx::result res;
 		try {
-			if (currentTransaction) {
-				res = currentTransaction->exec(query);
+			if (m_CurrentTransaction) {
+				res = m_CurrentTransaction->exec(query);
 				spdlog::info("executed SELECT query in transaction: {}", query);
 			}
 			else {
-				pqxx::work txn(*conn);
+				pqxx::work txn(*m_Conn);
 				res = txn.exec(query);
 				txn.commit();
 				spdlog::info("executed SELECT query: {}", query);
@@ -29,7 +29,7 @@ namespace SOEP {
 			return response;
 		}
 		
-		// unlikely to fail, logically, should only fail if severe system issues such we get exception of 'bad_alloc'
+		// unlikely to fail
 		for (const auto& row : res) {
 			std::map<std::string, std::string> resultRow;
 			for (const auto& field : row) {
@@ -44,17 +44,17 @@ namespace SOEP {
 
 
 	DbResponse<int> DatabaseConnection::executeUpdateQuery(const std::string& query) {
-		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+		SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 		DbResponse<int> response;
 		pqxx::result res;
 		try {
-			if (currentTransaction) {
-				res = currentTransaction->exec(query);
+			if (m_CurrentTransaction) {
+				res = m_CurrentTransaction->exec(query);
 				spdlog::info("executed UPDATE query in transaction: {}", query);
 			}
 			else {
-				pqxx::work txn(*conn);
+				pqxx::work txn(*m_Conn);
 				res = txn.exec(query);
 				int affectedRows = res.affected_rows();
 				txn.commit();
@@ -79,16 +79,16 @@ namespace SOEP {
 		IMPORTANT: dont execute inside threads
 	*/
 	DbResponse<void> DatabaseConnection::executeAdminQuery(const std::string& query) {
-		SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+		SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 		DbResponse<void> response;
 		try {
-			if (currentTransaction) {
-				currentTransaction->exec(query);
+			if (m_CurrentTransaction) {
+				m_CurrentTransaction->exec(query);
 				spdlog::info("executed ADMIN query in transaction: {}", query);
 			}
 			else {
-				pqxx::work txn(*conn);
+				pqxx::work txn(*m_Conn);
 				txn.exec(query);
 				txn.commit();
 				spdlog::info("executed ADMIN query: {}", query);

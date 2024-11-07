@@ -50,17 +50,17 @@ namespace SOEP {
 		*/
 		template<typename... Params>
 		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query, Params&&... params) {
-			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+			SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 			DbResponse<std::vector<std::map<std::string, std::string>>> response;
 			pqxx::result res;
 			try {
-				if (currentTransaction) {
-					res = currentTransaction->exec_params(query, std::forward<Params>(params)...);
+				if (m_CurrentTransaction) {
+					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
 					spdlog::info("executed SELECT query in transaction: {}", query);
 				}
 				else {
-					pqxx::work txn(*conn);
+					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
 					spdlog::info("executed SELECT query {}", query);
@@ -96,17 +96,17 @@ namespace SOEP {
 		*/
 		template<typename... Params>
 		DbResponse<int> executeUpdateQuery(const std::string& query, Params&&... params) {
-			SOEP_ASSERT(conn && conn->is_open(), "connection is not open");
+			SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 			DbResponse<int> response;
 			pqxx::result res;
 			try {
-				if (currentTransaction) {
-					res = currentTransaction->exec_params(query, std::forward<Params>(params)...);
+				if (m_CurrentTransaction) {
+					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
 					spdlog::info("executed UPDATE query in transaction: {}", query);
 				}
 				else {
-					pqxx::work txn(*conn);
+					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
 					spdlog::info("executed UPDATE query: {}", query);
@@ -134,8 +134,8 @@ namespace SOEP {
 	private:
 		void connect();
 
-		std::string connString;
-		std::unique_ptr<pqxx::connection> conn;
-		std::unique_ptr<pqxx::work> currentTransaction;
+		std::string m_ConnString;
+		std::unique_ptr<pqxx::connection> m_Conn;
+		std::unique_ptr<pqxx::work> m_CurrentTransaction;
 	};
 }

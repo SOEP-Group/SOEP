@@ -68,18 +68,18 @@ int main()
 
 
 	const char* _offset = std::getenv("OFFSET");
-	const char* _numSatellites = std::getenv("NUM_SATELLITES");
+	const char* _num_satellites = std::getenv("NUM_SATELLITES");
 	const char* _start_time = std::getenv("START_TIME");
 	const char* _stop_time = std::getenv("STOP_TIME");
 	const char* _step_size = std::getenv("STEP_SIZE");
 
 	int offset = _offset != nullptr ? std::stoi(_offset) : 0;
-	int numSatellites = _numSatellites != nullptr ? std::stoi(_numSatellites) : 10;
+	int num_satellites = _num_satellites != nullptr ? std::stoi(_num_satellites) : 10;
 	double start_time = _start_time != nullptr ? std::stoi(_start_time) : 0;
 	double stop_time = _stop_time != nullptr ? std::stoi(_stop_time) : 1440;
 	double step_size = _step_size != nullptr ? std::stoi(_step_size) : 1;
 
-	SOEP::SatelliteProcessor processor(apiKey, numSatellites, offset, start_time, stop_time, step_size);
+	SOEP::SatelliteProcessor processor(apiKey, num_satellites, offset, start_time, stop_time, step_size);
 	processor.invoke();
 
 	connPool.shutdown();

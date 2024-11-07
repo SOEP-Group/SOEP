@@ -4,7 +4,7 @@
 
 namespace SOEP {
 	DatabaseConnection::DatabaseConnection(const std::string& connStr)
-		: connString(connStr), conn(nullptr), currentTransaction(nullptr) {
+		: m_ConnString(connStr), m_Conn(nullptr), m_CurrentTransaction(nullptr) {
 		connect();
 	}
 
@@ -13,24 +13,24 @@ namespace SOEP {
 	}
 
 	void DatabaseConnection::connect() {
-		conn = std::make_unique<pqxx::connection>(connString);
-		if (!conn->is_open()) {
+		m_Conn = std::make_unique<pqxx::connection>(m_ConnString);
+		if (!m_Conn->is_open()) {
 			throw std::runtime_error("failed to open database connection");
 		}
 		spdlog::info("database connection established");
 	}
 
 	bool DatabaseConnection::isOpen() const {
-		return conn && conn->is_open();
+		return m_Conn && m_Conn->is_open();
 	}
 
 	void DatabaseConnection::close() {
-		if (conn && conn->is_open()) {
-			if (currentTransaction) {
-				currentTransaction->abort();
-				currentTransaction.reset();
+		if (m_Conn && m_Conn->is_open()) {
+			if (m_CurrentTransaction) {
+				m_CurrentTransaction->abort();
+				m_CurrentTransaction.reset();
 			}
-			conn.reset();
+			m_Conn.reset();
 			spdlog::info("connection closed");
 		}
 	}

@@ -3,7 +3,7 @@
 #include "network/network.h"
 #include "core/threadpool.h"
 #include "database/pool/connection_pool.h"
-#include "db_RAII.h"
+#include "database/scoped_connection.h"
 
 
 namespace SOEP {
@@ -39,8 +39,7 @@ namespace SOEP {
 
     bool SatelliteProcessor::fetchNoradIds() {
         auto& connPool = ConnectionPool::getInstance();
-        ScopedDbConn dbConn(connPool);
-        auto conn = dbConn.get();
+        ScopedConnection conn(connPool);
         if (!conn) {
             spdlog::error("failed to aquire db connection when fetching ids");
             return false;
@@ -160,8 +159,7 @@ namespace SOEP {
         }
 
         auto& connPool = ConnectionPool::getInstance();
-        ScopedDbConn dbConn(connPool);
-        auto conn = dbConn.get();
+        ScopedConnection conn(connPool);
         if (!conn) {
             spdlog::error("Failed to acquire db connection for satellite: {}", id);
             return;

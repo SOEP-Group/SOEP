@@ -6,6 +6,7 @@
 #include "database/database_connection.h"
 #include "database/pool/connection_pool.h"
 #include "satellite_processor.h"
+#include "database/scoped_connection.h"
 
 int main()
 {
@@ -39,10 +40,10 @@ int main()
 	connPool.initialize(connString, 10);
 
 	{
-		auto dbConn = connPool.acquire();
-		if (dbConn) {
-			dbConn->getDatabaseVersion();
-			dbConn->executeAdminQuery(
+		SOEP::ScopedConnection conn(connPool);
+		if (conn) {
+			conn->getDatabaseVersion();
+			conn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data ("
 				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
 				"timestamp TIMESTAMPTZ NOT NULL, "
@@ -54,10 +55,8 @@ int main()
 				"zdot_km_per_s DOUBLE PRECISION NOT NULL, "
 				"PRIMARY KEY (satellite_id, timestamp)"
 				");");
-			dbConn->executeAdminQuery(
+			conn->executeAdminQuery(
 				"SELECT create_hypertable('satellite_data', 'timestamp', if_not_exists => TRUE);");
-
-			connPool.release(dbConn);
 		}
 	}
 

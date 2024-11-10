@@ -14,8 +14,8 @@ namespace SOEP {
 		m_MaxPoolSize = poolSize;
 
 		for (size_t i = 0; i < m_MaxPoolSize; ++i) {
-			auto conn = std::make_shared<DatabaseConnection>(m_ConnString);
-			m_Pool.push(conn);
+			auto conn = std::make_unique<DatabaseConnection>(m_ConnString);
+			m_Pool.push(std::move(conn));
 		}
 		m_IsInitialized = true;
 	}
@@ -24,7 +24,7 @@ namespace SOEP {
 		std::lock_guard<std::mutex> lock(m_PoolMutex);
 		m_IsShuttingDown = true;
 		while (!m_Pool.empty()) {
-			auto conn = m_Pool.front();
+			auto conn = std::move(m_Pool.front());
 			m_Pool.pop();
 			conn->close();
 		}
@@ -32,7 +32,7 @@ namespace SOEP {
 		m_IsShuttingDown = false;
 	}
 
-	std::shared_ptr<DatabaseConnection> ConnectionPool::acquire(int timeoutMs) {
+	std::unique_ptr<DatabaseConnection> ConnectionPool::acquire(int timeoutMs) {
 		std::unique_lock<std::mutex> lock(m_PoolMutex);
 		SOEP_ASSERT(isInitialized, "connection pool is not initialized");
 
@@ -47,15 +47,15 @@ namespace SOEP {
 			return nullptr;
 		}
 
-		auto conn = m_Pool.front();
+		auto conn = std::move(m_Pool.front());
 		m_Pool.pop();
 		return conn;
 	}
 
-	void ConnectionPool::release(std::shared_ptr<DatabaseConnection> conn) {
+	void ConnectionPool::release(std::unique_ptr<DatabaseConnection> conn) {
 		std::lock_guard<std::mutex> lock(m_PoolMutex);
 		if (conn && conn->isOpen()) {
-			m_Pool.push(conn);
+			m_Pool.push(std::move(conn));
 			m_PoolCondition.notify_one();
 		}
 		else {

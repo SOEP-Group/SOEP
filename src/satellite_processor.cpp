@@ -3,13 +3,13 @@
 #include "network/network.h"
 #include "core/threadpool.h"
 #include "database/pool/connection_pool.h"
-#include "db_RAII.h"
+#include "database/scoped_connection.h"
 
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int numSatellites, int offset,
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int num_satellites, int offset,
                                            double start_time, double stop_time, double step_size)
-        : m_ApiKey(apiKey), m_NumSatellites(numSatellites), m_Offset(offset),
+        : m_ApiKey(apiKey), m_NumSatellites(num_satellites), m_Offset(offset),
           m_StartTime(start_time), m_StopTime(stop_time), m_StepSize(step_size) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
@@ -24,6 +24,8 @@ namespace SOEP {
 
         int numToProcess = static_cast<int>(m_NoradIds.size());
 
+        //spdlog::debug("{}", fmt::join(m_NoradIds, ", "));
+
         spdlog::info("processing {} satellites", numToProcess);
         for (int i = 0; i < numToProcess; i++) {
             pool.AddTask([this, id = m_NoradIds[i]]() {
@@ -37,8 +39,7 @@ namespace SOEP {
 
     bool SatelliteProcessor::fetchNoradIds() {
         auto& connPool = ConnectionPool::getInstance();
-        ScopedDbConn dbConn(connPool);
-        auto conn = dbConn.get();
+        ScopedConnection conn(connPool);
         if (!conn) {
             spdlog::error("failed to aquire db connection when fetching ids");
             return false;
@@ -47,19 +48,19 @@ namespace SOEP {
         std::string query = "SELECT satellite_id FROM satellites ORDER BY satellite_id LIMIT " +
                             std::to_string(m_NumSatellites) + " OFFSET " + std::to_string(m_Offset) + ";";
 
-        try {
-            auto res = conn->executeSelectQuery(query);
-            for (const auto& row : res) {
-                int id = std::stoi(row.at("satellite_id"));
-                m_NoradIds.push_back(id);
-            }
-            if (m_NoradIds.empty()) {
-                spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
-                return false;
-            }
-        } catch (const std::exception& e) {
-            spdlog::error("error fetching ids: {}", e.what());
+        auto response = conn->executeSelectQuery(query);
+        if (!response.success) {
+            spdlog::error("error fetching ids: {}", response.errorMsg);
             spdlog::debug("make sure 'satellites' table exist and is populated in the db");
+            return false;
+        }
+
+        for (const auto& row : response.payload) {
+            int id = std::stoi(row.at("satellite_id"));
+            m_NoradIds.push_back(id);
+        }
+        if (m_NoradIds.empty()) {
+            spdlog::warn("no ids fetched from db. check the OFFSET and NUM_SATELLITES values");
             return false;
         }
 
@@ -137,7 +138,6 @@ namespace SOEP {
 
         std::vector<nlohmann::json> recordsWithTimestamps;
         for (const auto& record : jsonResult) {
-            // Check for required keys in each record
             if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
                 record.contains("z_km") && record.contains("xdot_km_per_s") &&
                 record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {
@@ -159,44 +159,60 @@ namespace SOEP {
         }
 
         auto& connPool = ConnectionPool::getInstance();
-        ScopedDbConn dbConn(connPool);
-        auto conn = dbConn.get();
+        ScopedConnection conn(connPool);
         if (!conn) {
             spdlog::error("Failed to acquire db connection for satellite: {}", id);
             return;
         }
 
-        try {
-            conn->beginTransaction();
+        auto beginResponse = conn->beginTransaction();
+        if (!beginResponse.success) {
+            spdlog::error("failed to start transaction for satellite: {}: {}", id, beginResponse.errorMsg);
+            return;
+        }
 
-            for (const auto& record : recordsWithTimestamps) {
-                conn->executeUpdateQuery(
-                    "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
-                    "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
-                    "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
-                    "x_km = EXCLUDED.x_km, "
-                    "y_km = EXCLUDED.y_km, "
-                    "z_km = EXCLUDED.z_km, "
-                    "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
-                    "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
-                    "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
-                    id,
-                    record["timestamp"].get<std::string>(),
-                    record["x_km"].get<double>(),
-                    record["y_km"].get<double>(),
-                    record["z_km"].get<double>(),
-                    record["xdot_km_per_s"].get<double>(),
-                    record["ydot_km_per_s"].get<double>(),
-                    record["zdot_km_per_s"].get<double>()
-                );
+        bool transactionFailed = false;
+
+        for (const auto& record : recordsWithTimestamps) {
+            auto updateResponse = conn->executeUpdateQuery(
+                "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
+                "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
+                "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
+                "x_km = EXCLUDED.x_km, "
+                "y_km = EXCLUDED.y_km, "
+                "z_km = EXCLUDED.z_km, "
+                "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
+                "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
+                "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
+                id,
+                record["timestamp"].get<std::string>(),
+                record["x_km"].get<double>(),
+                record["y_km"].get<double>(),
+                record["z_km"].get<double>(),
+                record["xdot_km_per_s"].get<double>(),
+                record["ydot_km_per_s"].get<double>(),
+                record["zdot_km_per_s"].get<double>()
+            );
+
+            if (!updateResponse.success) {
+                spdlog::error("failed to execute update query for satellite: {}: {}", id, updateResponse.errorMsg);
+                transactionFailed = true;
+                break;
             }
+        }
 
-            conn->commitTransaction();
-        } catch (const std::exception& e) {
-            conn->rollbackTransaction();
-            spdlog::error("Database transaction failed for satellite {}: {}", id, e.what());
+        if (!transactionFailed) {
+            auto commitResponse = conn->commitTransaction();
+            if (commitResponse.success) {
+                return;
+            }
+            spdlog::error("failed to commit transaction for satellite: {}: {}", id, commitResponse.errorMsg);
+        }
+
+        auto rollbackResponse = conn->rollbackTransaction();
+        if (!rollbackResponse.success) {
+            spdlog::error("failed to rollback transaction for satellite: {}: {}", id, rollbackResponse.errorMsg);
         }
     }
 }
-

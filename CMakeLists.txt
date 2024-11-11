@@ -20,8 +20,6 @@ add_compile_definitions(TRACY_TIMER_FALLBACK)
 
 add_library(SOEP_lib
     src/database/database_connection.cpp
-    src/database/query_exec.cpp
-    src/database/transactions.cpp
     src/database/pool/connection_pool.cpp
     src/core/threadpool.cpp
     src/network/network.cpp

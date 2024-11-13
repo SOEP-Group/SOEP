@@ -158,6 +158,9 @@ namespace SOEP {
             recordsWithTimestamps.push_back(recordWithTimestamp);
         }
 
+        int successfulInserts = 0;
+        int failedInserts = 0;
+
         auto& connPool = ConnectionPool::getInstance();
         ScopedConnection conn(connPool);
         if (!conn) {
@@ -196,18 +199,27 @@ namespace SOEP {
             );
 
             if (!updateResponse.success) {
-                spdlog::error("failed to execute update query for satellite: {}: {}", id, updateResponse.errorMsg);
+                spdlog::error("Failed to update satellite {}: {}", id, updateResponse.errorMsg);
+                failedInserts++;
                 transactionFailed = true;
                 break;
+            } else {
+                successfulInserts += updateResponse.payload;
             }
         }
 
         if (!transactionFailed) {
             auto commitResponse = conn->commitTransaction();
             if (commitResponse.success) {
+                spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
+                if (failedInserts > 0) {
+                    spdlog::warn("Satellite {}: {} records failed to insert/update.", id, failedInserts);
+                }
                 return;
             }
-            spdlog::error("failed to commit transaction for satellite: {}: {}", id, commitResponse.errorMsg);
+            spdlog::error("Failed to commit transaction for satellite {}: {}", id, commitResponse.errorMsg);
+        } else {
+            spdlog::warn("Transaction failed for satellite {}: Rolling back.", id);
         }
 
         auto rollbackResponse = conn->rollbackTransaction();

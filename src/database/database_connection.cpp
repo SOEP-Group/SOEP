@@ -74,7 +74,6 @@ namespace SOEP {
 		try {
 			m_CurrentTransaction->commit();
 			m_CurrentTransaction.reset();
-			spdlog::debug("transaction committed");
 			response.success = true;
 		}
 		catch (const pqxx::in_doubt_error& e) {
@@ -100,7 +99,6 @@ namespace SOEP {
 		try {
 			m_CurrentTransaction->abort();
 			m_CurrentTransaction.reset();
-			spdlog::debug("transaction rolled back");
 			response.success = true;
 		}
 		catch (const pqxx::broken_connection& e) {
@@ -176,7 +174,6 @@ namespace SOEP {
 		catch (const pqxx::broken_connection& e) {
 			response.success = false;
 			response.errorMsg = e.what();
-			spdlog::error("Database connection error: {}", e.what());
 		}
 		catch (const pqxx::sql_error& e) {
 			response.success = false;

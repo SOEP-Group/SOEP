@@ -213,9 +213,15 @@ namespace SOEP {
             auto commitResponse = conn->commitTransaction();
             if (commitResponse.success) {
                 spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
+                spdlog::debug("Transaction committed for satellite {}", id);
             } else {
                 spdlog::error("Failed to commit transaction for satellite {}: {}", id, commitResponse.errorMsg);
-                conn->rollbackTransaction();
+                auto rollbackResponse = conn->rollbackTransaction();
+                if (rollbackResponse.success) {
+                    spdlog::debug("Transaction rolled back for satellite {}", id);
+                } else {
+                    spdlog::error("Failed to rollback transaction for satellite {}: {}", id, rollbackResponse.errorMsg);
+                }
             }
         } else {
             conn->rollbackTransaction();

@@ -24,8 +24,6 @@ namespace SOEP {
 
         int numToProcess = static_cast<int>(m_NoradIds.size());
 
-        //spdlog::debug("{}", fmt::join(m_NoradIds, ", "));
-
         spdlog::info("processing {} satellites", numToProcess);
         for (int i = 0; i < numToProcess; i++) {
             pool.AddTask([this, id = m_NoradIds[i]]() {
@@ -160,6 +158,7 @@ namespace SOEP {
 
         int successfulInserts = 0;
         int failedInserts = 0;
+        std::vector<std::string> errorMessages;
 
         auto& connPool = ConnectionPool::getInstance();
         ScopedConnection conn(connPool);
@@ -173,6 +172,8 @@ namespace SOEP {
             spdlog::error("failed to start transaction for satellite: {}: {}", id, beginResponse.errorMsg);
             return;
         }
+
+        spdlog::debug("Transaction started for satellite {}", id);
 
         bool transactionFailed = false;
 
@@ -199,7 +200,7 @@ namespace SOEP {
             );
 
             if (!updateResponse.success) {
-                spdlog::error("Failed to update satellite {}: {}", id, updateResponse.errorMsg);
+                errorMessages.push_back(updateResponse.errorMsg);
                 failedInserts++;
                 transactionFailed = true;
                 break;
@@ -208,23 +209,32 @@ namespace SOEP {
             }
         }
 
-        if (!transactionFailed) {
+        if (failedInserts == 0) {
             auto commitResponse = conn->commitTransaction();
             if (commitResponse.success) {
                 spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
-                if (failedInserts > 0) {
-                    spdlog::warn("Satellite {}: {} records failed to insert/update.", id, failedInserts);
-                }
-                return;
+            } else {
+                spdlog::error("Failed to commit transaction for satellite {}: {}", id, commitResponse.errorMsg);
+                conn->rollbackTransaction();
             }
-            spdlog::error("Failed to commit transaction for satellite {}: {}", id, commitResponse.errorMsg);
         } else {
-            spdlog::warn("Transaction failed for satellite {}: Rolling back.", id);
-        }
+            conn->rollbackTransaction();
 
-        auto rollbackResponse = conn->rollbackTransaction();
-        if (!rollbackResponse.success) {
-            spdlog::error("failed to rollback transaction for satellite: {}: {}", id, rollbackResponse.errorMsg);
+            std::string errorFileName = "satellite_" + std::to_string(id) + "_errors.log";
+            std::ofstream errorFile(errorFileName, std::ios::app);
+            if (errorFile.is_open()) {
+                for (const auto& msg : errorMessages) {
+                    errorFile << msg << std::endl;
+                }
+                errorFile.close();
+                spdlog::warn("Satellite {}: {} records failed to insert/update. Errors saved to {}.", id, failedInserts, errorFileName);
+            } else {
+                spdlog::error("Failed to open error log file for satellite {}.", id);
+            }
+
+            if (successfulInserts > 0) {
+                spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
+            }
         }
     }
 }

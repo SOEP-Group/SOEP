@@ -53,7 +53,6 @@ namespace SOEP {
 		DbResponse<void> response;
 		try {
 			m_CurrentTransaction = std::make_unique<pqxx::work>(*m_Conn);
-			spdlog::trace("transaction started");
 			response.success = true;
 		}
 		catch (const pqxx::broken_connection& e) {

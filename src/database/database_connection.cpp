@@ -178,7 +178,6 @@ namespace SOEP {
 		catch (const pqxx::sql_error& e) {
 			response.success = false;
 			response.errorMsg = e.what();
-			spdlog::error("SQL error: {}", e.what());
 		}
 
 		return response;

@@ -113,12 +113,10 @@ namespace SOEP {
 			catch (const pqxx::broken_connection& e) {
 				response.success = false;
 				response.errorMsg = e.what();
-				spdlog::error("Database connection error: {}", e.what());
 			}
 			catch (const pqxx::sql_error& e) {
 				response.success = false;
 				response.errorMsg = e.what();
-				spdlog::error("SQL error: {}", e.what());
 			}
 
 			return response;

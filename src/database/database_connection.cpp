@@ -17,7 +17,7 @@ namespace SOEP {
 		if (!m_Conn->is_open()) {
 			throw std::runtime_error("failed to open database connection");
 		}
-		spdlog::info("database connection established");
+		spdlog::debug("database connection established");
 	}
 
 	bool DatabaseConnection::isOpen() const {
@@ -31,7 +31,7 @@ namespace SOEP {
 				m_CurrentTransaction.reset();
 			}
 			m_Conn.reset();
-			spdlog::info("connection closed");
+			spdlog::debug("connection closed");
 		}
 	}
 
@@ -42,7 +42,7 @@ namespace SOEP {
 			return;
 		}
 		for (const auto& row : res.payload) {
-			spdlog::info("{}", row.at("version"));
+			spdlog::debug("{}", row.at("version"));
 		}
 	}
 
@@ -53,7 +53,6 @@ namespace SOEP {
 		DbResponse<void> response;
 		try {
 			m_CurrentTransaction = std::make_unique<pqxx::work>(*m_Conn);
-			spdlog::info("transaction started");
 			response.success = true;
 		}
 		catch (const pqxx::broken_connection& e) {
@@ -75,7 +74,6 @@ namespace SOEP {
 		try {
 			m_CurrentTransaction->commit();
 			m_CurrentTransaction.reset();
-			spdlog::info("transaction committed");
 			response.success = true;
 		}
 		catch (const pqxx::in_doubt_error& e) {
@@ -101,7 +99,6 @@ namespace SOEP {
 		try {
 			m_CurrentTransaction->abort();
 			m_CurrentTransaction.reset();
-			spdlog::info("transaction rolled back");
 			response.success = true;
 		}
 		catch (const pqxx::broken_connection& e) {
@@ -124,13 +121,11 @@ namespace SOEP {
 		try {
 			if (m_CurrentTransaction) {
 				res = m_CurrentTransaction->exec(query);
-				spdlog::info("executed SELECT query in transaction: {}", query);
 			}
 			else {
 				pqxx::work txn(*m_Conn);
 				res = txn.exec(query);
 				txn.commit();
-				spdlog::info("executed SELECT query: {}", query);
 			}
 		}
 		catch (const pqxx::broken_connection& e) {
@@ -166,14 +161,12 @@ namespace SOEP {
 		try {
 			if (m_CurrentTransaction) {
 				res = m_CurrentTransaction->exec(query);
-				spdlog::info("executed UPDATE query in transaction: {}", query);
 			}
 			else {
 				pqxx::work txn(*m_Conn);
 				res = txn.exec(query);
 				int affectedRows = res.affected_rows();
 				txn.commit();
-				spdlog::info("executed UPDATE query: {}", query);
 			}
 			response.payload = res.affected_rows();
 			response.success = true;
@@ -200,13 +193,11 @@ namespace SOEP {
 		try {
 			if (m_CurrentTransaction) {
 				m_CurrentTransaction->exec(query);
-				spdlog::info("executed ADMIN query in transaction: {}", query);
 			}
 			else {
 				pqxx::work txn(*m_Conn);
 				txn.exec(query);
 				txn.commit();
-				spdlog::info("executed ADMIN query: {}", query);
 			}
 			response.success = true;
 		}

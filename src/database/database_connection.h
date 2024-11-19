@@ -57,13 +57,11 @@ namespace SOEP {
 			try {
 				if (m_CurrentTransaction) {
 					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
-					spdlog::info("executed SELECT query in transaction: {}", query);
 				}
 				else {
 					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
-					spdlog::info("executed SELECT query {}", query);
 				}
 			}
 			catch (const pqxx::broken_connection& e) {
@@ -103,13 +101,11 @@ namespace SOEP {
 			try {
 				if (m_CurrentTransaction) {
 					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
-					spdlog::info("executed UPDATE query in transaction: {}", query);
 				}
 				else {
 					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
-					spdlog::info("executed UPDATE query: {}", query);
 				}
 				response.payload = res.affected_rows();
 				response.success = true;

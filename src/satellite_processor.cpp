@@ -177,24 +177,6 @@ namespace SOEP {
 
         bool transactionFailed = false;
 
-        // delete entries of 'id' more then 24h ago from current
-        auto deleteResponse = conn->executeUpdateQuery(
-            "DELETE FROM satellite_data WHERE satellite_id = $1 AND timestamp < NOW() - INTERVAL '24 hours';",
-            id
-        );
-
-        if (!deleteResponse.success) {
-            spdlog::error("failed to delete old data for satellite {}: {}", id, deleteResponse.errorMsg);
-            auto rollbackResponse = conn->rollbackTransaction();
-            if (rollbackResponse.success) {
-                spdlog::debug("cleanup transaction rolled back for satellite {}", id);
-            } else {
-                spdlog::error("failed to rollback cleanup transaction for satellite {}: {}", id, rollbackResponse.errorMsg);
-            }
-        } else {
-            spdlog::info("satellite {}: {} old records deleted.", id, deleteResponse.payload);
-        }
-
         for (const auto& record : recordsWithTimestamps) {
             auto updateResponse = conn->executeUpdateQuery(
                 "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "

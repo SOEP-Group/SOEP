@@ -57,6 +57,10 @@ int main()
 				");");
 			conn->executeAdminQuery(
 				"SELECT create_hypertable('satellite_data', 'timestamp', if_not_exists => TRUE);");
+			conn->executeAdminQuery(
+    			"SELECT set_chunk_time_interval('satellite_data', INTERVAL '24 hours');");
+			conn->executeAdminQuery(
+    			"SELECT add_retention_policy('satellite_data', INTERVAL '14 days');");
 		}
 	}
 

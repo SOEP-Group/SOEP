@@ -45,22 +45,13 @@ int main()
 			conn->getDatabaseVersion();
 			conn->executeAdminQuery(
 				"CREATE TABLE IF NOT EXISTS satellite_data ("
-				"satellite_id INTEGER NOT NULL REFERENCES satellites(satellite_id), "
-				"timestamp TIMESTAMPTZ NOT NULL, "
-				"x_km DOUBLE PRECISION NOT NULL, "
-				"y_km DOUBLE PRECISION NOT NULL, "
-				"z_km DOUBLE PRECISION NOT NULL, "
-				"xdot_km_per_s DOUBLE PRECISION NOT NULL, "
-				"ydot_km_per_s DOUBLE PRECISION NOT NULL, "
-				"zdot_km_per_s DOUBLE PRECISION NOT NULL, "
-				"PRIMARY KEY (satellite_id, timestamp)"
-				");");
-			conn->executeAdminQuery(
-				"SELECT create_hypertable('satellite_data', 'timestamp', if_not_exists => TRUE);");
-			conn->executeAdminQuery(
-    			"SELECT set_chunk_time_interval('satellite_data', INTERVAL '24 hours');");
-			conn->executeAdminQuery(
-    			"SELECT add_retention_policy('satellite_data', INTERVAL '14 days');");
+				"satellite_id INTEGER PRIMARY KEY, "
+				"tle_line1 TEXT NOT NULL, "
+				"tle_line2 TEXT NOT NULL"
+				"FOREIGN KEY (satellite_id) REFERENCES satellites(satellite_id) "
+				"ON DELETE CASCADE"
+				");"
+			);
 		}
 	}
 
@@ -77,12 +68,9 @@ int main()
 	const char* _step_size = std::getenv("STEP_SIZE");
 
 	int offset = _offset != nullptr ? std::stoi(_offset) : 0;
-	int num_satellites = _num_satellites != nullptr ? std::stoi(_num_satellites) : 10;
-	double start_time = _start_time != nullptr ? std::stoi(_start_time) : 0;
-	double stop_time = _stop_time != nullptr ? std::stoi(_stop_time) : 1440;
-	double step_size = _step_size != nullptr ? std::stoi(_step_size) : 1;
+	int num_satellites = _num_satellites != nullptr ? std::stoi(_num_satellites) : 1;
 
-	SOEP::SatelliteProcessor processor(apiKey, num_satellites, offset, start_time, stop_time, step_size);
+	SOEP::SatelliteProcessor processor(apiKey, num_satellites, offset);
 	processor.invoke();
 
 	connPool.shutdown();

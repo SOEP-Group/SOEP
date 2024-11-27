@@ -7,10 +7,8 @@
 
 
 namespace SOEP {
-    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int num_satellites, int offset,
-                                           double start_time, double stop_time, double step_size)
-        : m_ApiKey(apiKey), m_NumSatellites(num_satellites), m_Offset(offset),
-          m_StartTime(start_time), m_StopTime(stop_time), m_StepSize(step_size) {}
+    SatelliteProcessor::SatelliteProcessor(const std::string& apiKey, int num_satellites, int offset)
+        : m_ApiKey(apiKey), m_NumSatellites(num_satellites), m_Offset(offset) {}
 
     SatelliteProcessor::~SatelliteProcessor() {}
 
@@ -101,65 +99,6 @@ namespace SOEP {
         std::replace(tle_line1.begin(), tle_line1.end(), '\'', '\"');
         std::replace(tle_line2.begin(), tle_line2.end(), '\'', '\"');
 
-        std::ostringstream command;
-        // args: tle_line1: str, tle_line2: str, start_time: float, stop_time: float, step_size: float
-        command << "python3 -c \"import sgp4_module; result = sgp4_module.propagate_satellite('"
-                << tle_line1 << "', '" << tle_line2 << "', " << m_StartTime << ", " << m_StopTime
-                << ", " << m_StepSize << "); print(result)\"";
-
-        FILE* pipe = popen(command.str().c_str(), "r");
-        if (!pipe) {
-            spdlog::error("Failed to run Python script for satellite {}", id);
-            return;
-        }
-
-        char buffer[128];
-        std::string result = "";
-        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-            result += buffer;
-        }
-
-        int returnCode = pclose(pipe);
-        if (returnCode != 0) {
-            spdlog::error("Error running Python script for satellite {}", id);
-        }
-
-        nlohmann::json jsonResult;
-        try {
-            jsonResult = nlohmann::json::parse(result);
-        } catch (const std::exception& e) {
-            spdlog::error("Error parsing JSON result for satellite {}: {}", id, e.what());
-            return;
-        }
-
-        auto currentTime = std::chrono::system_clock::now();
-
-        std::vector<nlohmann::json> recordsWithTimestamps;
-        for (const auto& record : jsonResult) {
-            if (!(record.contains("tsince_min") && record.contains("x_km") && record.contains("y_km") &&
-                record.contains("z_km") && record.contains("xdot_km_per_s") &&
-                record.contains("ydot_km_per_s") && record.contains("zdot_km_per_s"))) {
-                spdlog::error("Incomplete data for satellite {}: {}", id, record.dump());
-                continue;
-            }
-
-            // Calculate the timestamp based on `tsince_min`
-            auto recordTime = currentTime + std::chrono::minutes(static_cast<int>(record["tsince_min"].get<double>()));
-            std::time_t recordTimeT = std::chrono::system_clock::to_time_t(recordTime);
-            std::tm* gmt = std::gmtime(&recordTimeT);
-
-            std::ostringstream timeStream;
-            timeStream << std::put_time(gmt, "%Y-%m-%d %H:%M");
-
-            nlohmann::json recordWithTimestamp = record;
-            recordWithTimestamp["timestamp"] = timeStream.str();
-            recordsWithTimestamps.push_back(recordWithTimestamp);
-        }
-
-        int successfulInserts = 0;
-        int failedInserts = 0;
-        std::vector<std::string> errorMessages;
-
         auto& connPool = ConnectionPool::getInstance();
         ScopedConnection conn(connPool);
         if (!conn) {
@@ -167,80 +106,21 @@ namespace SOEP {
             return;
         }
 
-        auto beginResponse = conn->beginTransaction();
-        if (!beginResponse.success) {
-            spdlog::error("failed to start transaction for satellite: {}: {}", id, beginResponse.errorMsg);
-            return;
-        }
+        auto queryResponse = conn->executeUpdateQuery(
+            "INSERT INTO satellite_data (satellite_id, tle_line1, tle_line2) "
+            "VALUES ($1, $2, $3) "
+            "ON CONFLICT (satellite_id) DO UPDATE SET "
+            "tle_line1 = EXCLUDED.tle_line1, "
+            "tle_line2 = EXCLUDED.tle_line2;",
+            id,
+            tle_line1,
+            tle_line2
+        );
 
-        spdlog::debug("Transaction started for satellite {}", id);
-
-        bool transactionFailed = false;
-
-        for (const auto& record : recordsWithTimestamps) {
-            auto updateResponse = conn->executeUpdateQuery(
-                "INSERT INTO satellite_data (satellite_id, timestamp, x_km, y_km, z_km, "
-                "xdot_km_per_s, ydot_km_per_s, zdot_km_per_s) "
-                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
-                "ON CONFLICT (satellite_id, timestamp) DO UPDATE SET "
-                "x_km = EXCLUDED.x_km, "
-                "y_km = EXCLUDED.y_km, "
-                "z_km = EXCLUDED.z_km, "
-                "xdot_km_per_s = EXCLUDED.xdot_km_per_s, "
-                "ydot_km_per_s = EXCLUDED.ydot_km_per_s, "
-                "zdot_km_per_s = EXCLUDED.zdot_km_per_s;",
-                id,
-                record["timestamp"].get<std::string>(),
-                record["x_km"].get<double>(),
-                record["y_km"].get<double>(),
-                record["z_km"].get<double>(),
-                record["xdot_km_per_s"].get<double>(),
-                record["ydot_km_per_s"].get<double>(),
-                record["zdot_km_per_s"].get<double>()
-            );
-
-            if (!updateResponse.success) {
-                errorMessages.push_back(updateResponse.errorMsg);
-                failedInserts++;
-                transactionFailed = true;
-                break;
-            } else {
-                successfulInserts += updateResponse.payload;
-            }
-        }
-
-        if (failedInserts == 0) {
-            auto commitResponse = conn->commitTransaction();
-            if (commitResponse.success) {
-                spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
-                spdlog::debug("Transaction committed for satellite {}", id);
-            } else {
-                spdlog::error("Failed to commit transaction for satellite {}: {}", id, commitResponse.errorMsg);
-                auto rollbackResponse = conn->rollbackTransaction();
-                if (rollbackResponse.success) {
-                    spdlog::debug("Transaction rolled back for satellite {}", id);
-                } else {
-                    spdlog::error("Failed to rollback transaction for satellite {}: {}", id, rollbackResponse.errorMsg);
-                }
-            }
+        if (queryResponse.success) {
+            spdlog::info("tle data updated for satellite: {} with {} line updated", id, queryResponse.payload);
         } else {
-            conn->rollbackTransaction();
-
-            std::string errorFileName = "satellite_" + std::to_string(id) + "_errors.log";
-            std::ofstream errorFile(errorFileName, std::ios::app);
-            if (errorFile.is_open()) {
-                for (const auto& msg : errorMessages) {
-                    errorFile << msg << std::endl;
-                }
-                errorFile.close();
-                spdlog::warn("Satellite {}: {} records failed to insert/update. Errors saved to {}.", id, failedInserts, errorFileName);
-            } else {
-                spdlog::error("Failed to open error log file for satellite {}.", id);
-            }
-
-            if (successfulInserts > 0) {
-                spdlog::info("Satellite {}: {} records successfully inserted/updated.", id, successfulInserts);
-            }
+            spdlog::error("failed to update TLE data for satellite {}: {}", id, queryResponse.errorMsg);
         }
     }
 }

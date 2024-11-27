@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS satellites (
     description TEXT
 );
 
+CREATE TABLE IF NOT EXISTS satellite_data (
+    satellite_id INTEGER PRIMARY KEY,
+    tle_line1 TEXT NOT NULL,
+    tle_line2 TEXT NOT NULL,
+    FOREIGN KEY (satellite_id) REFERENCES satellites(satellite_id) ON DELETE RESTRICT
+);
+
 BEGIN;
 """)
     for satellite in data:

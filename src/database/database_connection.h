@@ -8,32 +8,36 @@
 #include <spdlog/spdlog.h>
 #include "core/assert.h"
 
-namespace SOEP {
-	template<typename T>
-	struct DbResponse {
+namespace SOEP
+{
+	template <typename T>
+	struct DbResponse
+	{
 		bool success;
 		T payload;
 		std::string errorMsg;
 	};
 
-	template<>
-	struct DbResponse<void> {
+	template <>
+	struct DbResponse<void>
+	{
 		bool success;
 		std::string errorMsg;
 	};
 
-	class DatabaseConnection {
+	class DatabaseConnection
+	{
 	public:
-		explicit DatabaseConnection(const std::string& connStr);
+		explicit DatabaseConnection(const std::string &connStr);
 		~DatabaseConnection();
 
 		// disable copy
-		DatabaseConnection(const DatabaseConnection&) = delete;
-		DatabaseConnection& operator=(const DatabaseConnection&) = delete;
+		DatabaseConnection(const DatabaseConnection &) = delete;
+		DatabaseConnection &operator=(const DatabaseConnection &) = delete;
 
 		// enable move
-		DatabaseConnection(DatabaseConnection&&) = default;
-		DatabaseConnection& operator=(DatabaseConnection&&) = default;
+		DatabaseConnection(DatabaseConnection &&) = default;
+		DatabaseConnection &operator=(DatabaseConnection &&) = default;
 
 		bool isOpen() const;
 
@@ -43,66 +47,79 @@ namespace SOEP {
 		DbResponse<void> commitTransaction();
 		DbResponse<void> rollbackTransaction();
 
-		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query); // SELECT
+		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string &query); // SELECT
 
 		/*
 			use this if subject to user input
 		*/
-		template<typename... Params>
-		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string& query, Params&&... params) {
+		template <typename... Params>
+		DbResponse<std::vector<std::map<std::string, std::string>>> executeSelectQuery(const std::string &query, Params &&...params)
+		{
 			SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 			DbResponse<std::vector<std::map<std::string, std::string>>> response;
 			pqxx::result res;
-			try {
-				if (m_CurrentTransaction) {
+			try
+			{
+				if (m_CurrentTransaction)
+				{
 					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
 				}
-				else {
+				else
+				{
 					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
 				}
 			}
-			catch (const pqxx::broken_connection& e) {
+			catch (const pqxx::broken_connection &e)
+			{
 				response.success = false;
 				response.errorMsg = e.what();
 				return response;
 			}
-			catch (const pqxx::sql_error& e) {
+			catch (const pqxx::sql_error &e)
+			{
 				response.success = false;
 				response.errorMsg = e.what();
 				return response;
 			}
 
-			for (const auto& row : res) {
+			for (const auto &row : res)
+			{
 				std::map<std::string, std::string> resultRow;
-				for (const auto& field : row) {
-					resultRow[field.name()] = field.c_str();
+				for (const auto &field : row)
+				{
+					const char *val = field.c_str();
+					std::string val_str = val ? val : "";
+					resultRow[field.name()] = val_str;
 				}
-				response.payload.push_back(resultRow);
 			}
 			response.success = true;
 
 			return response;
 		}
 
-		DbResponse<int> executeUpdateQuery(const std::string& query); // INSERT, UPDATE, DELETE
+		DbResponse<int> executeUpdateQuery(const std::string &query); // INSERT, UPDATE, DELETE
 
 		/*
 			use this if subject to user input
 		*/
-		template<typename... Params>
-		DbResponse<int> executeUpdateQuery(const std::string& query, Params&&... params) {
+		template <typename... Params>
+		DbResponse<int> executeUpdateQuery(const std::string &query, Params &&...params)
+		{
 			SOEP_ASSERT(m_Conn && m_Conn->is_open(), "connection is not open");
 
 			DbResponse<int> response;
 			pqxx::result res;
-			try {
-				if (m_CurrentTransaction) {
+			try
+			{
+				if (m_CurrentTransaction)
+				{
 					res = m_CurrentTransaction->exec_params(query, std::forward<Params>(params)...);
 				}
-				else {
+				else
+				{
 					pqxx::work txn(*m_Conn);
 					res = txn.exec_params(query, std::forward<Params>(params)...);
 					txn.commit();
@@ -110,11 +127,13 @@ namespace SOEP {
 				response.payload = res.affected_rows();
 				response.success = true;
 			}
-			catch (const pqxx::broken_connection& e) {
+			catch (const pqxx::broken_connection &e)
+			{
 				response.success = false;
 				response.errorMsg = e.what();
 			}
-			catch (const pqxx::sql_error& e) {
+			catch (const pqxx::sql_error &e)
+			{
 				response.success = false;
 				response.errorMsg = e.what();
 			}
@@ -123,7 +142,7 @@ namespace SOEP {
 		}
 
 		// should never take user input
-		DbResponse<void> executeAdminQuery(const std::string& query); // CREATE, ALTER
+		DbResponse<void> executeAdminQuery(const std::string &query); // CREATE, ALTER
 
 		void close();
 

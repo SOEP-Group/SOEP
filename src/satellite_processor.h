@@ -1,28 +1,61 @@
+// satellite_processor.h
 #pragma once
 
+#include <vector>
 #include <string>
+#include <optional>
+#include <mutex>
 
-namespace SOEP {
-    class SatelliteProcessor {
+// Include nlohmann::json library
+#include <nlohmann/json.hpp>
+
+namespace SOEP
+{
+    // Structure to hold processed satellite data
+    struct ProcessedSatelliteData
+    {
+        int satellite_id;
+        std::string epoch_timestamp;
+        nlohmann::json propagated_data;
+    };
+
+    // SatelliteProcessor Class
+    class SatelliteProcessor
+    {
     public:
-        SatelliteProcessor(const std::string& apiKey, int num_satellites = 1000, int offset = 0,
-                           double start_time = 0, double stop_time = 1440, double step_size = 1);
+        // Constructor
+        SatelliteProcessor(int num_satellites, int offset,
+                           double start_time, double stop_time, double step_size);
+
+        // Destructor
         ~SatelliteProcessor();
 
+        // Main method to invoke processing
         void invoke();
 
     private:
+        // Fetch NORAD IDs from the database
         bool fetchNoradIds();
-        void fetchSatelliteTLEData(int id);
-        void processSatelliteTLEData(int id, std::string& tle_data);
 
-        std::string m_ApiKey;
+        // Process a single satellite from the database
+        std::optional<ProcessedSatelliteData> processSatelliteFromDb(int id);
+
+        std::optional<nlohmann::json> processSatelliteTLEData(int id, const std::string &tle_line1,
+                                                              const std::string &tle_line2,
+                                                              double stop_time_min,
+                                                              const std::string &epoch_timestamp);
+
+        void insertSatelliteData(const ProcessedSatelliteData &data);
+
         int m_NumSatellites;
         int m_Offset;
-        std::vector<int> m_NoradIds;
-
         double m_StartTime;
         double m_StopTime;
         double m_StepSize;
+
+        std::vector<int> m_NoradIds;
+
+        // Mutex for thread-safe operations (if needed)
+        std::mutex m_InsertMutex;
     };
 }
